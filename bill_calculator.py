@@ -1,212 +1,220 @@
-# ============================================================
-# HARTRON BILL CALCULATOR
-# ============================================================
-
-import streamlit as st
 import pandas as pd
-from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
-# ============================================================
-# CONFIG
-# ============================================================
+def main():
+    # Ask for input type: BV or PV (per unit)
+    entry_type = input("Enter 'BV' for Base Value or 'PV' for Product Value (per unit): ").upper()
+    
+    # Ask for the value (per unit)
+    try:
+        per_unit_value = float(input(f"Enter the per unit {entry_type}: "))
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+        return
+    
+    # Ask for GST percentage on item
+    try:
+        gst_percent = float(input("Enter GST Percentage on the item: "))
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+        return
+    
+    # Ask for project type
+    project_type = input("Is the project State Govt. funded (S) or eCommittee Funded (E)? ").upper()
+    if project_type == 'S':
+        hartron_percent = 4
+    elif project_type == 'E':
+        hartron_percent = 2
+    else:
+        print("Invalid selection. Please enter S or E.")
+        return
+    
+    # Calculations per unit
+    if entry_type == 'PV':
+        per_unit_pv = per_unit_value
+        per_unit_bv = per_unit_pv / (1 + gst_percent / 100)
+        per_unit_gst_product = per_unit_pv - per_unit_bv
+    elif entry_type == 'BV':
+        per_unit_bv = per_unit_value
+        per_unit_gst_product = per_unit_bv * (gst_percent / 100)
+        per_unit_pv = per_unit_bv + per_unit_gst_product
+    else:
+        print("Invalid entry type. Please enter BV or PV.")
+        return
+    
+    # Ask for total quantity
+    try:
+        total_quantity = int(input("Enter total quantity of the item: "))
+    except ValueError:
+        print("Invalid input. Please enter an integer.")
+        return
+    
+    # State wise bifurcation
+    try:
+        num_states = int(input("Enter number of states: "))
+    except ValueError:
+        print("Invalid input. Please enter an integer.")
+        return
+    
+    states = []
+    quantities = []
+    for i in range(num_states):
+        state = input(f"Enter state {i+1} name: ")
+        try:
+            qty = int(input(f"Enter quantity for {state}: "))
+        except ValueError:
+            print("Invalid input. Please enter an integer.")
+            return
+        states.append(state)
+        quantities.append(qty)
+    
+    if sum(quantities) != total_quantity:
+        print("Error: State quantities do not sum to total quantity.")
+        return
+    
+    # Calculate per state values
+    base_states = [per_unit_bv * qty for qty in quantities]
+    gst_product_states = [per_unit_gst_product * qty for qty in quantities]
+    total_product_states = [b + g for b, g in zip(base_states, gst_product_states)]
+    hartron_states = [bs * (hartron_percent / 100) for bs in base_states]
+    gst_hartron_states = [hs * 0.18 for hs in hartron_states]
+    total_states = [tp + hs + gs for tp, hs, gs in zip(total_product_states, hartron_states, gst_hartron_states)]
+    
+    # Deductions per state
+    gst_tds_product_states = [bs * 0.02 for bs in base_states]
+    gst_tds_hartron_states = [hs * 0.02 for hs in hartron_states]
+    tds_hartron_states = [hs * 0.10 for hs in hartron_states]
+    
+    # Ask for late penalty per unit
+    try:
+        penalty_per_unit = float(input("Enter late delivery/installation penalty per unit (0 if none): "))
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+        return
+    penalty_states = [penalty_per_unit * qty for qty in quantities]
+    
+    # Ask if amount already lying with HARTRON
+    already_states = [0.0] * num_states
+    already_lying = input("Is any amount already lying with HARTRON? (Y/N): ").upper()
+    if already_lying == 'Y':
+        paid_type = input("Paid collectively (C) or per state (P)? ").upper()
+        if paid_type == 'C':
+            try:
+                total_paid = float(input("Enter total amount already paid: "))
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+                return
+            for i, qty in enumerate(quantities):
+                share = total_paid * (qty / total_quantity) if total_quantity > 0 else 0
+                already_states[i] = round(share, 2)
+        elif paid_type == 'P':
+            for i, state in enumerate(states):
+                try:
+                    amount = float(input(f"Enter amount paid from {state}: "))
+                except ValueError:
+                    print("Invalid input. Please enter a number.")
+                    return
+                already_states[i] = amount
+        else:
+            print("Invalid selection. Please enter C or P.")
+            return
+    
+    # Total deductions per state
+    total_deductions_states = [
+        gtp + gth + th + pen + al
+        for gtp, gth, th, pen, al in zip(gst_tds_product_states, gst_tds_hartron_states, tds_hartron_states, penalty_states, already_states)
+    ]
+    
+    # Payment per state
+    payment_states = [ts - tds for ts, tds in zip(total_states, total_deductions_states)]
+    
+    # Withdrawn per state
+    withdrawn_states = [
+        gtp + gth + th + pay
+        for gtp, gth, th, pay in zip(gst_tds_product_states, gst_tds_hartron_states, tds_hartron_states, payment_states)
+    ]
+    
+    # Now build the table
+    descriptions = [
+        (1, "Total qty supplied"),
+        (2, f"Base value of product (per unit {round(per_unit_bv, 2)} * #1)"),
+        (3, f"{gst_percent}% GST on base value of product (# 2)"),
+        (4, "Total product cost inclusive of GST(# 2+3)"),
+        (5, f"Hartron consultancy Charges @{hartron_percent}% on the base value of product at #2"),
+        (6, "GST on Hartron Consultancy Charges @ 18% on # 5"),
+        (7, "Total (# 4+5+6)"),
+        (8, "Deductions"),
+        (9, "2% GST TDS required to be deducted on base value of product #2"),
+        (10, "2% GST TDS required to be deducted on Hartron Consultancy Charges #5"),
+        (11, "10% TDS required to be deducted on base value of Hartron consultancy charges #5"),
+        (12, "Statewise Late delivery/installation penalty"),
+        (13, "Amount already available with HARTRON"),
+        (14, "Total deductions (#9+10+11+12+13)"),
+        (15, "Payment to be made to HARTRON (#7-14)"),
+        (16, "Statewise Amount to be withdrawn")
+    ]
+    
+    # Data lists
+    data = []
+    state_columns = {state: [] for state in states}
+    total_column = []
+    
+    values_lists = [
+        quantities,
+        base_states,
+        gst_product_states,
+        total_product_states,
+        hartron_states,
+        gst_hartron_states,
+        total_states,
+        [None] * num_states,  # Deductions title, no values
+        gst_tds_product_states,
+        gst_tds_hartron_states,
+        tds_hartron_states,
+        penalty_states,
+        already_states,
+        total_deductions_states,
+        payment_states,
+        withdrawn_states
+    ]
+    
+    for i, (sr, desc) in enumerate(descriptions):
+        row = [sr, desc]
+        state_values = values_lists[i] if values_lists[i][0] is not None else [''] * num_states
+        for val in state_values:
+            row.append(round(val, 2) if isinstance(val, float) else val)
+        total = sum(state_values) if all(isinstance(v, (int, float)) for v in state_values) else ''
+        row.append(round(total, 2) if isinstance(total, float) else total)
+        data.append(row)
+    
+    # Columns
+    columns = ['Sr.', 'Description'] + states + ['Total']
+    
+    # Create DataFrame
+    df = pd.DataFrame(data, columns=columns)
+    
+    # Display the table
+    print("\nBill Table:")
+    print(df.to_string(index=False))
+    
+    # Option to export
+    export_option = input("\nExport to Excel (E), PDF (P), or none (N)? ").upper()
+    if export_option == 'E':
+        df.to_excel('bill.xlsx', index=False)
+        print("Exported to bill.xlsx")
+    elif export_option == 'P':
+        fig, ax = plt.subplots(figsize=(12 + len(states)*2, len(data) * 0.3))
+        ax.axis('tight')
+        ax.axis('off')
+        table = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc='center')
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.auto_set_column_width(col=list(range(len(df.columns))))
+        with PdfPages('bill.pdf') as pp:
+            pp.savefig(fig, bbox_inches='tight')
+        plt.close()
+        print("Exported to bill.pdf")
 
-st.set_page_config(page_title="HARTRON Bill Calculator", layout="wide")
-st.title("HARTRON Bill Calculator")
-
-GSTPH = 18
-GST_TDS_PRODUCT = 2
-GST_TDS_HCC = 2
-TDS_HCC = 10
-
-STATES = ["Punjab", "Haryana", "UT Chandigarh"]
-
-# ============================================================
-# INPUTS
-# ============================================================
-
-st.header("A. Core Inputs")
-
-funding = st.radio("Funding Type", ["State Govt Funded (SGF)", "eCommittee Funded (eCF)"])
-HCC_RATE = 0.04 if "SGF" in funding else 0.02
-
-gstp = st.number_input("GST % on Product", value=18.0)
-
-value_type = st.radio("Input Type", ["Base Value (BV)", "Product Value (PV – GST Inclusive)"])
-value = st.number_input("Enter Value", min_value=0.0)
-
-st.header("B. Quantity Distribution")
-
-total_qty = st.number_input("Total Quantity", min_value=1, step=1)
-
-qty = {}
-cols = st.columns(3)
-for i, s in enumerate(STATES):
-    qty[s] = cols[i].number_input(f"{s} Quantity", min_value=0, step=1)
-
-if sum(qty.values()) != total_qty:
-    st.error("Quantity breakup must equal total quantity.")
-    st.stop()
-
-st.header("C. Statewise Late Delivery / Installation Penalty")
-
-penalty = {}
-cols = st.columns(3)
-for i, s in enumerate(STATES):
-    penalty[s] = cols[i].number_input(f"{s} Penalty Amount", min_value=0.0)
-
-st.header("D. Amount already available with HARTRON")
-
-mode = st.radio(
-    "Advance received mode",
-    ["Single consolidated amount", "State-wise individual amounts"]
-)
-
-advance_state = {}
-
-if mode == "Single consolidated amount":
-    adv_total = st.number_input("Total Amount already available with HARTRON", min_value=0.0)
-    for s in STATES:
-        advance_state[s] = adv_total * qty[s] / total_qty
-else:
-    cols = st.columns(3)
-    for i, s in enumerate(STATES):
-        advance_state[s] = cols[i].number_input(f"{s} Advance Amount", min_value=0.0)
-
-# ============================================================
-# CALCULATIONS
-# ============================================================
-
-if value <= 0:
-    st.warning("Enter a valid BV or PV to proceed.")
-    st.stop()
-
-# --- Product calculations ---
-if value_type.startswith("Product"):
-    PV = value
-    GST_product = PV * gstp / (100 + gstp)
-    BV = PV - GST_product
-else:
-    BV = value
-    GST_product = BV * gstp / 100
-    PV = BV + GST_product
-
-HCC = BV * HCC_RATE
-GST_HCC = HCC * GSTPH / 100
-
-# --- Totals before deductions ---
-INTERMEDIATE_TOTAL = BV + GST_product + HCC + GST_HCC
-
-# --- Statutory deductions ---
-GST_TDS_PRODUCT_AMT = BV * GST_TDS_PRODUCT / 100
-GST_TDS_HCC_AMT = HCC * GST_TDS_HCC / 100
-TDS_HCC_AMT = HCC * TDS_HCC / 100
-
-# ============================================================
-# EVEN ADJUSTMENT LOGIC
-# ============================================================
-
-def make_even(total):
-    return total if int(round(total)) % 2 == 0 else total + 1
-
-GST_TOTAL = GST_product + GST_HCC
-GST_TDS_TOTAL = GST_TDS_PRODUCT_AMT + GST_TDS_HCC_AMT
-
-GST_TOTAL_EVEN = make_even(GST_TOTAL)
-GST_TDS_TOTAL_EVEN = make_even(GST_TDS_TOTAL)
-
-GST_ADJUSTMENT = GST_TOTAL_EVEN - GST_TOTAL
-GST_TDS_ADJUSTMENT = GST_TDS_TOTAL_EVEN - GST_TDS_TOTAL
-
-ADJUSTMENT_NOTE = ""
-if GST_ADJUSTMENT or GST_TDS_ADJUSTMENT:
-    ADJUSTMENT_NOTE = "₹1 adjustment applied to ensure EVEN GST / GST TDS total."
-
-# ============================================================
-# FINAL PAYABLE
-# ============================================================
-
-TOTAL_PENALTY = sum(penalty.values())
-TOTAL_ADVANCE = sum(advance_state.values())
-
-NET_PAYABLE = (
-    INTERMEDIATE_TOTAL
-    - GST_TDS_PRODUCT_AMT
-    - GST_TDS_HCC_AMT
-    - TDS_HCC_AMT
-    - TOTAL_PENALTY
-    - TOTAL_ADVANCE
-    + GST_ADJUSTMENT
-    + GST_TDS_ADJUSTMENT
-)
-
-# ============================================================
-# OUTPUT TABLE (EXCEL STRUCTURE)
-# ============================================================
-
-rows = [
-    [1, "Base Value of Product", BV],
-    [2, f"GST @ {gstp}%", GST_product],
-    [3, "Product Value", PV],
-    [4, f"HARTRON Consultancy Charges @{int(HCC_RATE*100)}%", HCC],
-    [5, "GST on HARTRON Consultancy Charges @18%", GST_HCC],
-    [6, "Total (A)", INTERMEDIATE_TOTAL],
-    [7, "GST TDS @2% on Base Value of Product", -GST_TDS_PRODUCT_AMT],
-    [8, "GST TDS @2% on HARTRON Consultancy Charges", -GST_TDS_HCC_AMT],
-    [9, "TDS @10% on HARTRON Consultancy Charges", -TDS_HCC_AMT],
-    [10, "Statewise Late Delivery / Installation Penalty", -TOTAL_PENALTY],
-    [11, "Amount already available with HARTRON", -TOTAL_ADVANCE],
-    [12, "Net Payable Amount", NET_PAYABLE],
-]
-
-df = pd.DataFrame(rows, columns=["Sr#", "Description", "Amount"])
-
-st.header("E. Bill Summary")
-st.dataframe(df, use_container_width=True)
-
-if ADJUSTMENT_NOTE:
-    st.info(ADJUSTMENT_NOTE)
-
-# ============================================================
-# EXPORTS
-# ============================================================
-
-def export_excel(df):
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Bill")
-    return buf.getvalue()
-
-def export_pdf(df):
-    buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4)
-    styles = getSampleStyleSheet()
-
-    data = [["Sr#", "Description", "Amount"]] + df.values.tolist()
-
-    table = Table(data, colWidths=[40, 330, 100])
-    table.setStyle(TableStyle([
-        ("GRID", (0,0), (-1,-1), 0.5, colors.black),
-        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
-        ("ALIGN", (2,1), (2,-1), "RIGHT"),
-        ("FONT", (0,0), (-1,0), "Helvetica-Bold")
-    ]))
-
-    doc.build([Paragraph("HARTRON Bill Summary", styles["Title"]), table])
-    buf.seek(0)
-    return buf
-
-st.download_button(
-    "Download Excel",
-    export_excel(df),
-    file_name="HARTRON_Bill.xlsx"
-)
-
-st.download_button(
-    "Download PDF",
-    export_pdf(df),
-    file_name="HARTRON_Bill.pdf"
-)
+if __name__ == "__main__":
+    main()
