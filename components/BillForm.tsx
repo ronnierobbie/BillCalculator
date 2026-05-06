@@ -207,505 +207,489 @@ export default function BillForm() {
   };
 
   return (
-    <div className="relative min-h-screen text-foreground">
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -top-24 -left-24 h-[420px] w-[420px] rounded-full bg-amber-200/50 blur-3xl" />
-        <div className="absolute top-12 right-[-140px] h-[360px] w-[360px] rounded-full bg-sky-200/40 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.85),_transparent_60%)]" />
-        <div className="absolute inset-0 opacity-30 [background-size:24px_24px] [background-image:linear-gradient(transparent_23px,rgba(0,0,0,0.04)_24px),linear-gradient(90deg,transparent_23px,rgba(0,0,0,0.04)_24px)]" />
-      </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border bg-foreground text-background">
+            <Calculator className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">HARTRON Bill Calculator</p>
+          </div>
+          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+            <span className="rounded-md border px-2 py-1">
+              {form.entryType === "BV" ? "Base Value" : "Product Value"}
+            </span>
+            <span className="rounded-md border px-2 py-1">
+              {form.projectFunding === "state" ? "State Govt." : "eCommittee"}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsDark(!isDark)}
+            aria-label="Toggle theme"
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+        </div>
+      </header>
 
-      <div className="flex min-h-screen">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b bg-background/75 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-              <div className="flex-1">
-                <div className="text-sm font-medium">
-                  HARTRON Bill Calculator
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsDark(!isDark)}
-                aria-label="Toggle theme"
-              >
-                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-8">
+        <aside className="hidden lg:block">
+          <nav className="sticky top-20 space-y-1 text-sm">
+            <a className="flex items-center justify-between rounded-md bg-accent px-3 py-2 font-medium" href="#inputs">
+              Inputs
+              <span className="text-xs text-muted-foreground">3 states</span>
+            </a>
+            <a className="flex items-center justify-between rounded-md px-3 py-2 text-muted-foreground hover:bg-accent hover:text-foreground" href="#payments">
+              Payments
+              <span className="text-xs">{alreadyLying}</span>
+            </a>
+            <a className="flex items-center justify-between rounded-md px-3 py-2 text-muted-foreground hover:bg-accent hover:text-foreground" href="#output">
+              Output
+              <span className="text-xs">{result ? "Ready" : "Draft"}</span>
+            </a>
+          </nav>
+        </aside>
+
+        <div className="min-w-0 space-y-6">
+          <section className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between animate-[fade-in_0.35s_ease-out]">
+            <div className="space-y-2">
+              <p className="vercel-kicker">Billing workspace</p>
+              <h1 className="text-3xl font-semibold sm:text-4xl">
+                HARTRON Bill Calculator
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                Prepare state-wise quantities, penalties, and advance payments in a focused calculation console.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleReset}>
+                <RefreshCcw className="h-4 w-4" />
+                Reset
+              </Button>
+              <Button onClick={handleCalculate}>
+                <Calculator className="h-4 w-4" />
+                Calculate
               </Button>
             </div>
-          </header>
+          </section>
 
-          <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-4 pb-16 pt-8 sm:px-6 lg:px-8">
-            <section className="relative overflow-hidden rounded-3xl border bg-card/90 p-6 shadow-sm sm:p-8 animate-[fade-in_0.6s_ease-out]">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.9),_transparent_60%)]" />
-              <div className="relative flex flex-col gap-6">
-                <p className="notion-kicker">Hartron Billing Hub</p>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200/80 bg-amber-200/70 text-amber-900">
-                      <Calculator className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                        HARTRON Bill Calculator
-                      </h1>
-                      <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                        A focused workspace for Hartron billing that mirrors a
-                        Notion-style flow, with structured properties and a clean
-                        breakdown table.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span className="rounded-full border bg-background/70 px-3 py-1">
-                      Entry: {form.entryType === "BV" ? "Base Value" : "Product Value"}
-                    </span>
-                    <span className="rounded-full border bg-background/70 px-3 py-1">
-                      Funding: {form.projectFunding === "state" ? "State Govt." : "eCommittee"}
-                    </span>
-                    <span className="rounded-full border bg-background/70 px-3 py-1">
-                      GST: {form.gstPercent}%
-                    </span>
-                  </div>
-                </div>
+          {validationError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {validationError}
+            </div>
+          )}
+
+          <section className="grid gap-3 sm:grid-cols-3">
+            {[
+              ["Total Quantity", totalQuantity.toString()],
+              ["Penalties", numberFormatter.format(totalPenalties)],
+              ["Already Paid", numberFormatter.format(totalAlreadyPaid)],
+            ].map(([label, value]) => (
+              <div key={label} className="vercel-panel p-4">
+                <p className="vercel-kicker">{label}</p>
+                <p className="mt-2 font-mono text-2xl font-semibold tabular-nums">
+                  {value}
+                </p>
               </div>
-            </section>
+            ))}
+          </section>
 
-            <section
-              className="grid gap-6 lg:grid-cols-[1.55fr_0.9fr] animate-[slide-up_0.6s_ease-out]"
-              style={{ animationDelay: "120ms" }}
-            >
-              <div className="space-y-6">
-                <Card className="notion-panel">
-                  <CardHeader>
-                    <CardTitle className="notion-title">Configuration</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Define the core properties for this billing cycle.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="grid gap-4">
-                    <div className="notion-field">
-                      <Label className="text-sm text-muted-foreground">Input Type</Label>
-                      <Select
-                        value={form.entryType}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            entryType: e.target.value as "BV" | "PV",
-                          })
-                        }
-                      >
-                        <option value="BV">Base Value (BV)</option>
-                        <option value="PV">Product Value (PV)</option>
-                      </Select>
-                    </div>
-
-                    <div className="notion-field">
-                      <Label className="text-sm text-muted-foreground">Value per Unit</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={form.valuePerUnit}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            valuePerUnit: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="notion-field">
-                      <Label className="text-sm text-muted-foreground">GST Percentage</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={form.gstPercent}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            gstPercent: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="notion-field">
-                      <Label className="text-sm text-muted-foreground">Project Funding</Label>
-                      <Select
-                        value={form.projectFunding}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            projectFunding: e.target.value as "state" | "ecommittee",
-                          })
-                        }
-                      >
-                        <option value="state">State Govt. funded (4%)</option>
-                        <option value="ecommittee">eCommittee Funded (2%)</option>
-                      </Select>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="grid gap-6 md:grid-cols-2">
-                  <Card className="notion-panel">
-                    <CardHeader>
-                      <CardTitle className="notion-title">Quantities</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        State-wise quantities supplied.
-                      </p>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {STATES.map((state, i) => (
-                        <div
-                          key={state}
-                          className="grid items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 transition hover:border-border/80 hover:bg-muted/50 sm:grid-cols-[1fr_140px]"
-                        >
-                          <Label className="text-sm text-muted-foreground">
-                            {state}
-                          </Label>
-                          <Input
-                            className="w-full text-right tabular-nums"
-                            type="number"
-                            min="0"
-                            value={form.quantities[i]}
-                            onChange={(e) =>
-                              updateArrayField(
-                                "quantities",
-                                i,
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                          />
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="notion-panel">
-                    <CardHeader>
-                      <CardTitle className="notion-title">Late Penalties</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        Deductions for delayed delivery or installation.
-                      </p>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {STATES.map((state, i) => (
-                        <div
-                          key={state}
-                          className="grid items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 transition hover:border-border/80 hover:bg-muted/50 sm:grid-cols-[1fr_140px]"
-                        >
-                          <Label className="text-sm text-muted-foreground">
-                            {state}
-                          </Label>
-                          <Input
-                            className="w-full text-right tabular-nums"
-                            type="number"
-                            min="0"
-                            value={form.penalties[i]}
-                            onChange={(e) =>
-                              updateArrayField(
-                                "penalties",
-                                i,
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                          />
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card className="notion-panel">
-                  <CardHeader>
-                    <CardTitle className="notion-title">Advanced Payments</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Record any advance amount already with HARTRON.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm text-muted-foreground">
-                        Is any amount already lying with HARTRON?
-                      </Label>
-                      <div className="flex flex-wrap gap-2">
-                        {(["No", "Yes"] as const).map((value) => (
-                          <label key={value} className="relative">
-                            <input
-                              type="radio"
-                              name="alreadyLying"
-                              className="peer sr-only"
-                              checked={alreadyLying === value}
-                              onChange={() => {
-                                setAlreadyLying(value);
-                                if (value === "No") {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    alreadyPaid: [0, 0, 0],
-                                    alreadyPaidDesc:
-                                      "Amount already available with HARTRON",
-                                  }));
-                                }
-                              }}
-                            />
-                            <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-4 py-1 text-xs font-medium text-muted-foreground transition peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground">
-                              {value}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {alreadyLying === "Yes" && (
-                      <div className="space-y-4 rounded-xl border bg-muted/40 p-4 animate-[fade-in_0.4s_ease-out]">
-                        <div className="space-y-2">
-                          <Label className="text-sm text-muted-foreground">Payment Mode</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {(["Collectively", "Per State"] as const).map((value) => (
-                              <label key={value} className="relative">
-                                <input
-                                  type="radio"
-                                  name="paidType"
-                                  className="peer sr-only"
-                                  checked={paidType === value}
-                                  onChange={() => setPaidType(value)}
-                                />
-                                <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-4 py-1 text-xs font-medium text-muted-foreground transition peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground">
-                                  {value}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-
-                        {paidType === "Collectively" ? (
-                          <div className="space-y-2">
-                            <Label className="text-sm text-muted-foreground">
-                              Total Amount Paid
-                            </Label>
-                            <Input
-                              type="number"
-                              value={totalPaid}
-                              onChange={(e) =>
-                                setTotalPaid(parseFloat(e.target.value) || 0)
-                              }
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Amount is distributed based on quantity ratio.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {STATES.map((state, i) => (
-                              <div
-                                key={state}
-                                className="grid items-center gap-3 sm:grid-cols-[1fr_140px]"
-                              >
-                                <Label className="text-sm text-muted-foreground">
-                                  {state}
-                                </Label>
-                                <Input
-                                  className="w-full text-right tabular-nums"
-                                  type="number"
-                                  value={form.alreadyPaid[i]}
-                                  onChange={(e) =>
-                                    updateArrayField(
-                                      "alreadyPaid",
-                                      i,
-                                      parseFloat(e.target.value) || 0
-                                    )
-                                  }
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-                <Card className="notion-panel">
-                  <CardHeader>
-                    <CardTitle className="notion-title">Quick Actions</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Calculate, reset, and preview totals instantly.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-2">
-                      <Button
-                        size="lg"
-                        className="w-full justify-between"
-                        onClick={handleCalculate}
-                      >
-                        Calculate Bill
-                        <Calculator className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between"
-                        onClick={handleReset}
-                      >
-                        Reset Form
-                        <RefreshCcw className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {validationError && (
-                      <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                        {validationError}
-                      </div>
-                    )}
-
-                    <div className="space-y-3 border-t pt-4 text-sm">
-                      <p className="notion-kicker">Snapshot</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Total Quantity</span>
-                        <span className="font-semibold tabular-nums">
-                          {totalQuantity}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Penalties</span>
-                        <span className="font-semibold tabular-nums">
-                          {numberFormatter.format(totalPenalties)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Already Paid</span>
-                        <span className="font-semibold tabular-nums">
-                          {numberFormatter.format(totalAlreadyPaid)}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="notion-panel">
-                  <CardHeader>
-                    <CardTitle className="notion-title">Formula Notes</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Reference summary for billing computations.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm text-muted-foreground">
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1.5 h-2 w-2 rounded-full bg-amber-300" />
-                      <p>Product total = Base value + GST on product.</p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1.5 h-2 w-2 rounded-full bg-amber-300" />
-                      <p>Consultancy charges = Base value x funding rate.</p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1.5 h-2 w-2 rounded-full bg-amber-300" />
-                      <p>Final payment = Total - deductions - penalties.</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </section>
-
-            <section
-              className="space-y-4 animate-[slide-up_0.6s_ease-out]"
-              style={{ animationDelay: "220ms" }}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="notion-kicker">Bill Output</p>
-                  <h2 className="text-xl font-semibold tracking-tight">
-                    Bill Breakdown
-                  </h2>
+          <section
+            id="inputs"
+            className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] animate-[slide-up_0.45s_ease-out]"
+          >
+            <div className="space-y-6">
+              <Card className="vercel-panel">
+                <CardHeader>
+                  <CardTitle className="vercel-title">Project settings</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Export a clean table once calculations are complete.
+                    Core billing properties
                   </p>
-                </div>
-                {result && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={downloadExcel}>
-                      <Download className="h-4 w-4" />
-                      Export Excel
-                    </Button>
-                    <Button onClick={downloadPDF}>
-                      <Download className="h-4 w-4" />
-                      Export PDF
-                    </Button>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <div className="vercel-field">
+                    <Label className="text-sm text-muted-foreground">Input type</Label>
+                    <Select
+                      value={form.entryType}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          entryType: e.target.value as "BV" | "PV",
+                        })
+                      }
+                    >
+                      <option value="BV">Base Value (BV)</option>
+                      <option value="PV">Product Value (PV)</option>
+                    </Select>
                   </div>
-                )}
+
+                  <div className="vercel-field">
+                    <Label className="text-sm text-muted-foreground">Value per unit</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={form.valuePerUnit}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          valuePerUnit: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="vercel-field">
+                    <Label className="text-sm text-muted-foreground">GST percentage</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={form.gstPercent}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          gstPercent: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="vercel-field">
+                    <Label className="text-sm text-muted-foreground">Project funding</Label>
+                    <Select
+                      value={form.projectFunding}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          projectFunding: e.target.value as "state" | "ecommittee",
+                        })
+                      }
+                    >
+                      <option value="state">State Govt. funded (4%)</option>
+                      <option value="ecommittee">eCommittee Funded (2%)</option>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card className="vercel-panel">
+                  <CardHeader>
+                    <CardTitle className="vercel-title">Quantities</CardTitle>
+                    <p className="text-sm text-muted-foreground">State-wise supply</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {STATES.map((state, i) => (
+                      <div
+                        key={state}
+                        className="grid items-center gap-3 rounded-md px-1 py-1 transition hover:bg-accent sm:grid-cols-[1fr_132px]"
+                      >
+                        <Label className="text-sm text-muted-foreground">
+                          {state}
+                        </Label>
+                        <Input
+                          className="w-full text-right font-mono tabular-nums"
+                          type="number"
+                          min="0"
+                          value={form.quantities[i]}
+                          onChange={(e) =>
+                            updateArrayField(
+                              "quantities",
+                              i,
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card className="vercel-panel">
+                  <CardHeader>
+                    <CardTitle className="vercel-title">Late penalties</CardTitle>
+                    <p className="text-sm text-muted-foreground">Deductions by state</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {STATES.map((state, i) => (
+                      <div
+                        key={state}
+                        className="grid items-center gap-3 rounded-md px-1 py-1 transition hover:bg-accent sm:grid-cols-[1fr_132px]"
+                      >
+                        <Label className="text-sm text-muted-foreground">
+                          {state}
+                        </Label>
+                        <Input
+                          className="w-full text-right font-mono tabular-nums"
+                          type="number"
+                          min="0"
+                          value={form.penalties[i]}
+                          onChange={(e) =>
+                            updateArrayField(
+                              "penalties",
+                              i,
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
               </div>
 
-              {result ? (
-                <div className="overflow-x-auto rounded-2xl border bg-card/80 shadow-sm">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Sr.</th>
-                        <th className="px-4 py-3 font-medium">Item Description</th>
-                        <th className="px-4 py-3 text-right font-medium">
-                          Punjab
-                        </th>
-                        <th className="px-4 py-3 text-right font-medium">
-                          Haryana
-                        </th>
-                        <th className="px-4 py-3 text-right font-medium">
-                          Chandigarh
-                        </th>
-                        <th className="px-4 py-3 text-right font-medium">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.rows.map((row) => {
-                        const isHighlight =
-                          row.sr === 7 || row.sr === 15 || row.sr === 16;
-                        const isSection = row.sr === 8;
-                        const rowClassName = isSection
-                          ? "bg-muted/70 text-xs uppercase tracking-wide text-muted-foreground"
-                          : isHighlight
-                          ? "bg-accent/60 font-semibold"
-                          : "hover:bg-muted/40";
+              <Card id="payments" className="vercel-panel">
+                <CardHeader>
+                  <CardTitle className="vercel-title">Advance payments</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Amount already available with HARTRON
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Label className="text-sm text-muted-foreground">
+                      Already lying with HARTRON
+                    </Label>
+                    <div className="vercel-segment">
+                      {(["No", "Yes"] as const).map((value) => (
+                        <label key={value} className="relative">
+                          <input
+                            type="radio"
+                            name="alreadyLying"
+                            className="peer sr-only"
+                            checked={alreadyLying === value}
+                            onChange={() => {
+                              setAlreadyLying(value);
+                              if (value === "No") {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  alreadyPaid: [0, 0, 0],
+                                  alreadyPaidDesc:
+                                    "Amount already available with HARTRON",
+                                }));
+                              }
+                            }}
+                          />
+                          <span className="inline-flex h-8 min-w-14 items-center justify-center rounded-[5px] px-3 text-sm text-muted-foreground transition peer-checked:bg-foreground peer-checked:text-background">
+                            {value}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
-                        return (
-                          <tr key={row.sr} className={`border-t ${rowClassName}`}>
-                            <td className="px-4 py-3 text-center">{row.sr}</td>
-                            <td className="px-4 py-3 max-w-xs">
-                              {row.description}
-                            </td>
-                            {row.values.map((value, i) => (
-                              <td
-                                key={i}
-                                className="px-4 py-3 text-right tabular-nums"
-                              >
-                                {isSection
-                                  ? "-"
-                                  : numberFormatter.format(value)}
-                              </td>
-                            ))}
-                            <td className="px-4 py-3 text-right tabular-nums font-medium">
-                              {isSection
-                                ? "-"
-                                : numberFormatter.format(row.total)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
-                  No bill calculated yet. Complete the inputs and press
-                  &quot;Calculate Bill&quot; to generate the table.
+                  {alreadyLying === "Yes" && (
+                    <div className="space-y-4 border-t pt-4 animate-[fade-in_0.25s_ease-out]">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <Label className="text-sm text-muted-foreground">Payment mode</Label>
+                        <div className="vercel-segment">
+                          {(["Collectively", "Per State"] as const).map((value) => (
+                            <label key={value} className="relative">
+                              <input
+                                type="radio"
+                                name="paidType"
+                                className="peer sr-only"
+                                checked={paidType === value}
+                                onChange={() => setPaidType(value)}
+                              />
+                              <span className="inline-flex h-8 items-center justify-center rounded-[5px] px-3 text-sm text-muted-foreground transition peer-checked:bg-foreground peer-checked:text-background">
+                                {value}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {paidType === "Collectively" ? (
+                        <div className="vercel-field">
+                          <Label className="text-sm text-muted-foreground">
+                            Total amount paid
+                          </Label>
+                          <Input
+                            type="number"
+                            value={totalPaid}
+                            onChange={(e) =>
+                              setTotalPaid(parseFloat(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {STATES.map((state, i) => (
+                            <div
+                              key={state}
+                              className="grid items-center gap-3 sm:grid-cols-[1fr_160px]"
+                            >
+                              <Label className="text-sm text-muted-foreground">
+                                {state}
+                              </Label>
+                              <Input
+                                className="w-full text-right font-mono tabular-nums"
+                                type="number"
+                                value={form.alreadyPaid[i]}
+                                onChange={(e) =>
+                                  updateArrayField(
+                                    "alreadyPaid",
+                                    i,
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6 xl:sticky xl:top-20 xl:self-start">
+              <Card className="vercel-panel">
+                <CardHeader>
+                  <CardTitle className="vercel-title">Summary</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Current calculation state
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Input</span>
+                      <span className="font-medium">
+                        {form.entryType === "BV" ? "Base Value" : "Product Value"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Funding</span>
+                      <span className="font-medium">
+                        {form.projectFunding === "state" ? "State Govt." : "eCommittee"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">GST</span>
+                      <span className="font-mono font-medium tabular-nums">
+                        {form.gstPercent}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 border-t pt-4">
+                    <Button className="w-full justify-between" onClick={handleCalculate}>
+                      Calculate bill
+                      <Calculator className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={handleReset}
+                    >
+                      Reset form
+                      <RefreshCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="vercel-panel">
+                <CardHeader>
+                  <CardTitle className="vercel-title">Formula notes</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Calculation reference
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <p className="border-l-2 pl-3">Product total = Base value + GST on product.</p>
+                  <p className="border-l-2 pl-3">Consultancy charges = Base value x funding rate.</p>
+                  <p className="border-l-2 pl-3">Final payment = Total - deductions - penalties.</p>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+
+          <section
+            id="output"
+            className="space-y-4 animate-[slide-up_0.45s_ease-out]"
+            style={{ animationDelay: "90ms" }}
+          >
+            <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="vercel-kicker">Output</p>
+                <h2 className="text-xl font-semibold">Bill breakdown</h2>
+              </div>
+              {result && (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={downloadExcel}>
+                    <Download className="h-4 w-4" />
+                    Excel
+                  </Button>
+                  <Button onClick={downloadPDF}>
+                    <Download className="h-4 w-4" />
+                    PDF
+                  </Button>
                 </div>
               )}
-            </section>
-          </main>
+            </div>
+
+            {result ? (
+              <div className="vercel-panel overflow-x-auto">
+                <table className="w-full min-w-[780px] text-left text-sm">
+                  <thead className="border-b bg-muted/50 text-xs text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Sr.</th>
+                      <th className="px-4 py-3 font-medium">Item Description</th>
+                      <th className="px-4 py-3 text-right font-medium">Punjab</th>
+                      <th className="px-4 py-3 text-right font-medium">Haryana</th>
+                      <th className="px-4 py-3 text-right font-medium">Chandigarh</th>
+                      <th className="px-4 py-3 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rows.map((row) => {
+                      const isHighlight =
+                        row.sr === 7 || row.sr === 15 || row.sr === 16;
+                      const isSection = row.sr === 8;
+                      const rowClassName = isSection
+                        ? "bg-muted/60 text-xs font-medium text-muted-foreground"
+                        : isHighlight
+                        ? "bg-accent font-semibold"
+                        : "hover:bg-muted/45";
+
+                      return (
+                        <tr key={row.sr} className={`border-b last:border-b-0 ${rowClassName}`}>
+                          <td className="px-4 py-3 text-center font-mono tabular-nums">
+                            {row.sr}
+                          </td>
+                          <td className="max-w-sm px-4 py-3">
+                            {row.description}
+                          </td>
+                          {row.values.map((value, i) => (
+                            <td
+                              key={i}
+                              className="px-4 py-3 text-right font-mono tabular-nums"
+                            >
+                              {isSection ? "-" : numberFormatter.format(value)}
+                            </td>
+                          ))}
+                          <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">
+                            {isSection ? "-" : numberFormatter.format(row.total)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="vercel-panel flex min-h-40 items-center justify-center border-dashed p-6 text-center text-sm text-muted-foreground">
+                No bill calculated yet.
+              </div>
+            )}
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
