@@ -8,20 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select-native";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  BookOpen,
-  Calculator,
-  ClipboardList,
-  Download,
-  FileText,
-  LayoutGrid,
-  Menu,
-  Moon,
-  RefreshCcw,
-  Search,
-  Settings,
-  Sun,
-} from "lucide-react";
+import { Calculator, Download, Moon, RefreshCcw, Sun } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as ExcelJS from "exceljs";
@@ -38,14 +25,6 @@ const INITIAL_STATE: BillInput = {
   alreadyPaid: [0, 0, 0],
   alreadyPaidDesc: "Amount already available with HARTRON",
 };
-
-const NAV_ITEMS = [
-  { label: "Dashboard", icon: LayoutGrid },
-  { label: "Bills", icon: FileText },
-  { label: "Templates", icon: BookOpen },
-  { label: "Audit Log", icon: ClipboardList },
-  { label: "Settings", icon: Settings },
-];
 
 export default function BillForm() {
   const [form, setForm] = useState<BillInput>(INITIAL_STATE);
@@ -66,10 +45,6 @@ export default function BillForm() {
     () => form.penalties.reduce((a, b) => a + b, 0),
     [form.penalties]
   );
-  const totalAlreadyPaid = useMemo(
-    () => form.alreadyPaid.reduce((a, b) => a + b, 0),
-    [form.alreadyPaid]
-  );
   const numberFormatter = useMemo(
     () =>
       new Intl.NumberFormat("en-IN", {
@@ -87,11 +62,44 @@ export default function BillForm() {
     }
   }, [isDark]);
 
-  useEffect(() => {
-    if (validationError && totalQuantity > 0) {
-      setValidationError(null);
+  const effectiveAlreadyPaid = useMemo(() => {
+    if (alreadyLying === "No") {
+      return [0, 0, 0] as [number, number, number];
     }
-  }, [totalQuantity, validationError]);
+
+    if (paidType === "Collectively") {
+      if (totalQuantity === 0) {
+        return [0, 0, 0] as [number, number, number];
+      }
+
+      return form.quantities.map((q) =>
+        Number(((totalPaid * q) / totalQuantity).toFixed(2))
+      ) as [number, number, number];
+    }
+
+    return form.alreadyPaid;
+  }, [alreadyLying, paidType, form.alreadyPaid, form.quantities, totalPaid, totalQuantity]);
+
+  const alreadyPaidDesc = useMemo(() => {
+    const hasNonZero = effectiveAlreadyPaid.some((amount) => amount > 0);
+
+    if (alreadyLying === "No" || !hasNonZero) {
+      return "Amount already available with HARTRON";
+    }
+
+    const parts = STATES.map((state, i) =>
+      effectiveAlreadyPaid[i] > 0
+        ? `${state}: ${effectiveAlreadyPaid[i].toFixed(2)}`
+        : null
+    ).filter(Boolean);
+
+    return `Amount already available with HARTRON (${parts.join(", ")})`;
+  }, [alreadyLying, effectiveAlreadyPaid]);
+
+  const totalAlreadyPaid = useMemo(
+    () => effectiveAlreadyPaid.reduce((a, b) => a + b, 0),
+    [effectiveAlreadyPaid]
+  );
 
   const updateArrayField = (
     field: "quantities" | "penalties" | "alreadyPaid",
@@ -103,42 +111,11 @@ export default function BillForm() {
       updated[index] = value;
       return { ...prev, [field]: updated };
     });
+
+    if (field === "quantities" && validationError) {
+      setValidationError(null);
+    }
   };
-
-  useEffect(() => {
-    if (alreadyLying === "Yes" && paidType === "Collectively") {
-      if (totalQuantity > 0) {
-        const newAlreadyPaid = form.quantities.map((q) =>
-          Number(((totalPaid * q) / totalQuantity).toFixed(2))
-        ) as [number, number, number];
-        setForm((prev) => ({ ...prev, alreadyPaid: newAlreadyPaid }));
-      } else {
-        setForm((prev) => ({ ...prev, alreadyPaid: [0, 0, 0] }));
-      }
-    }
-  }, [totalPaid, form.quantities, paidType, alreadyLying, totalQuantity]);
-
-  useEffect(() => {
-    if (alreadyLying === "Yes") {
-      const paid = form.alreadyPaid;
-      const hasNonZero = paid.some((amount) => amount > 0);
-
-      let newDesc = "Amount already available with HARTRON";
-      if (hasNonZero) {
-        const parts = STATES.map((state, i) =>
-          paid[i] > 0 ? `${state}: ${paid[i].toFixed(2)}` : null
-        ).filter(Boolean);
-        newDesc = `Amount already available with HARTRON (${parts.join(", ")})`;
-      }
-
-      setForm((prev) => {
-        if (prev.alreadyPaidDesc !== newDesc) {
-          return { ...prev, alreadyPaidDesc: newDesc };
-        }
-        return prev;
-      });
-    }
-  }, [form.alreadyPaid, alreadyLying]);
 
   const handleCalculate = () => {
     if (totalQuantity === 0) {
@@ -147,7 +124,13 @@ export default function BillForm() {
       return;
     }
     setValidationError(null);
-    setResult(calculateBill(form));
+    setResult(
+      calculateBill({
+        ...form,
+        alreadyPaid: effectiveAlreadyPaid,
+        alreadyPaidDesc,
+      })
+    );
   };
 
   const handleReset = () => {
@@ -233,84 +216,14 @@ export default function BillForm() {
       </div>
 
       <div className="flex min-h-screen">
-        <aside className="hidden w-72 flex-col border-r bg-background/70 backdrop-blur lg:flex">
-          <div className="flex items-center justify-between border-b px-4 py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-200/70 text-sm font-semibold text-amber-900">
-                HC
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Hartron Ops</p>
-                <p className="text-xs text-muted-foreground">eCourt Workspace</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 px-3 py-4">
-            <p className="notion-kicker px-3 pb-3">Workspace</p>
-            <nav className="space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const isActive = item.label === "Bills";
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.label}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-                      isActive
-                        ? "bg-muted/80 font-semibold text-foreground"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                    }`}
-                    type="button"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-          <div className="px-4 pb-6">
-            <div className="rounded-xl border bg-card/80 p-3 text-xs text-muted-foreground">
-              Syncing to HARTRON billing templates and approval flows.
-            </div>
-          </div>
-        </aside>
-
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 border-b bg-background/75 backdrop-blur">
             <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden"
-                aria-label="Open menu"
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
               <div className="flex-1">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>Workspace</span>
-                  <span>/</span>
-                  <span>Billing</span>
-                  <span>/</span>
-                  <span className="text-foreground">Bill Calculator</span>
-                </div>
                 <div className="text-sm font-medium">
                   HARTRON Bill Calculator
                 </div>
               </div>
-              <div className="hidden items-center gap-2 md:flex">
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="w-56 pl-9"
-                    placeholder="Search pages..."
-                    type="search"
-                  />
-                </div>
-              </div>
-              <Button variant="outline" className="hidden sm:inline-flex">
-                Share
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"

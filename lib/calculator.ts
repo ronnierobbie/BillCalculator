@@ -29,10 +29,6 @@ export function calculateBill(input: BillInput): BillResult {
 
   const hartron_percent = projectFunding === 'state' ? 4 : 2;
 
-  // HARTRON Consultancy charges per unit
-  const hartron_unit = bv_unit * (hartron_percent / 100);
-  const gst_hartron_unit = hartron_unit * 0.18;
-
   // Calculate state-wise values
   const base_values = quantities.map((q) => q * bv_unit);
   const gst_products = base_values.map((bv) => bv * (gstPercent / 100));
@@ -64,13 +60,6 @@ export function calculateBill(input: BillInput): BillResult {
     (p, i) =>
       p + gst_tds_products[i] + gst_tds_hartrons[i] + tds_hartrons[i]
   );
-
-  // Helper to round
-  const r = (n: number) => {
-    // Python's round is mostly standard, but JS needs care with floating point.
-    // We will just keep raw numbers here and format in UI/Excel
-    return n;
-  }
 
   // Helper to sum
   const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
