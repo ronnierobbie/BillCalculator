@@ -110,11 +110,16 @@ export function useSavedBills() {
     [savedBills]
   );
 
-  const renameSavedBill = useCallback((billId: string, newTitle: string): void => {
-    const title = newTitle.trim();
+  const updateSavedBillDetails = useCallback((
+    billId: string,
+    details: { title: string; notes: string }
+  ): SavedBill | null => {
+    const title = details.title.trim();
     if (!title) {
-      return;
+      return null;
     }
+
+    let updatedBill: SavedBill | null = null;
 
     setSavedBills((previous) =>
       withPersistedUpdate(previous, (items) =>
@@ -123,16 +128,47 @@ export function useSavedBills() {
             return item;
           }
 
-          return {
+          updatedBill = {
             ...item,
             title,
             metadata: {
               ...item.metadata,
               title,
+              notes: details.notes,
             },
+            notes: details.notes || undefined,
             updatedAt: new Date().toISOString(),
           };
+
+          return updatedBill;
         })
+      )
+    );
+
+    return updatedBill;
+  }, []);
+
+  const renameSavedBill = useCallback((billId: string, newTitle: string): void => {
+    const title = newTitle.trim();
+    if (!title) {
+      return;
+    }
+
+    setSavedBills((previous) =>
+      withPersistedUpdate(previous, (items) =>
+        items.map((item) =>
+          item.id === billId
+            ? {
+                ...item,
+                title,
+                metadata: {
+                  ...item.metadata,
+                  title,
+                },
+                updatedAt: new Date().toISOString(),
+              }
+            : item
+        )
       )
     );
   }, []);
@@ -188,6 +224,7 @@ export function useSavedBills() {
     saveBill,
     saveBillAsCopy,
     openSavedBill,
+    updateSavedBillDetails,
     renameSavedBill,
     duplicateSavedBill,
     deleteSavedBill,

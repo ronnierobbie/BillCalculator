@@ -46,10 +46,11 @@ Supported actions:
 - Save current bill
 - Save as copy
 - Open saved bill
-- Rename saved bill
+- Edit saved bill title/notes inline (non-modal)
 - Duplicate saved bill
 - Delete saved bill
 - Mark draft/final
+- Search/filter/sort saved bills for larger histories
 
 Unsaved changes indicator appears when an opened saved bill has edits not yet re-saved.
 
@@ -88,6 +89,7 @@ Run:
 
 ```bash
 npm run lint
+npm run test
 npm run build
 ```
 

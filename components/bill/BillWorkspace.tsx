@@ -58,7 +58,7 @@ export function BillWorkspace() {
     saveBill,
     saveBillAsCopy,
     openSavedBill,
-    renameSavedBill,
+    updateSavedBillDetails,
     duplicateSavedBill,
     deleteSavedBill,
     setSavedBillStatus,
@@ -261,35 +261,39 @@ export function BillWorkspace() {
     setInfoMessage(`Duplicated as "${duplicate.title}".`);
   };
 
-  const handleRenameSavedBill = (billId: string) => {
+  const handleEditSavedBill = (
+    billId: string,
+    details: { title: string; notes: string }
+  ) => {
     const current = savedBills.find((item) => item.id === billId);
     if (!current) {
       setValidationError("Saved bill not found.");
       return;
     }
 
-    const nextTitle = window.prompt("Rename bill", current.title);
-    if (!nextTitle || !nextTitle.trim()) {
+    if (!details.title.trim()) {
+      setValidationError("Bill title cannot be empty.");
       return;
     }
 
-    renameSavedBill(billId, nextTitle);
+    const updated = updateSavedBillDetails(billId, details);
+    if (!updated) {
+      setValidationError("Unable to update saved bill details.");
+      return;
+    }
 
     if (activeBillId === billId) {
-      const nextMetadata = {
-        ...workspace.metadata,
-        title: nextTitle.trim(),
-      };
-      setWorkspace((previous) => ({
-        ...previous,
-        metadata: nextMetadata,
-      }));
+      setWorkspace((previous) => ({ ...previous, metadata: updated.metadata }));
       setLastSavedSnapshot(
-        createSnapshot({ metadata: nextMetadata, input: workspace.input }, result, activeBillStatus)
+        createSnapshot(
+          { metadata: updated.metadata, input: workspace.input },
+          result,
+          activeBillStatus
+        )
       );
     }
 
-    setInfoMessage("Bill renamed.");
+    setInfoMessage("Saved bill details updated.");
   };
 
   const handleDeleteSavedBill = (billId: string) => {
@@ -568,7 +572,7 @@ export function BillWorkspace() {
             hasUnsavedChanges={hasUnsavedChanges}
             onOpen={handleOpenSavedBill}
             onDuplicate={handleDuplicateSavedBill}
-            onRename={handleRenameSavedBill}
+            onEditDetails={handleEditSavedBill}
             onDelete={handleDeleteSavedBill}
             onStatusChange={handleStatusChange}
           />
