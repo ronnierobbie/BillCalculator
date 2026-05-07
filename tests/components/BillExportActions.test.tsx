@@ -4,36 +4,48 @@ import { describe, expect, it, vi } from "vitest";
 import { BillExportActions } from "@/components/bill/BillExportActions";
 
 describe("BillExportActions", () => {
-  it("triggers export callbacks when enabled", async () => {
+  it("triggers download and cloud save callbacks when enabled", async () => {
     const user = userEvent.setup();
-    const onExportPdf = vi.fn();
-    const onExportExcel = vi.fn();
+    const onDownloadPdf = vi.fn();
+    const onDownloadExcel = vi.fn();
+    const onSaveCloud = vi.fn();
+    const onOpenSavedFiles = vi.fn();
 
     render(
       <BillExportActions
         disabled={false}
         isPdfExporting={false}
         isExcelExporting={false}
-        onExportPdf={onExportPdf}
-        onExportExcel={onExportExcel}
+        isCloudSaving={false}
+        onDownloadPdf={onDownloadPdf}
+        onDownloadExcel={onDownloadExcel}
+        onSaveCloud={onSaveCloud}
+        onOpenSavedFiles={onOpenSavedFiles}
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Export Excel" }));
-    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+    await user.click(screen.getByRole("button", { name: "Download Excel" }));
+    await user.click(screen.getByRole("button", { name: "Download PDF" }));
+    await user.click(screen.getByRole("button", { name: "Save PDF & Excel" }));
+    await user.click(screen.getByRole("button", { name: "Saved files" }));
 
-    expect(onExportExcel).toHaveBeenCalledTimes(1);
-    expect(onExportPdf).toHaveBeenCalledTimes(1);
+    expect(onDownloadExcel).toHaveBeenCalledTimes(1);
+    expect(onDownloadPdf).toHaveBeenCalledTimes(1);
+    expect(onSaveCloud).toHaveBeenCalledTimes(1);
+    expect(onOpenSavedFiles).toHaveBeenCalledTimes(1);
   });
 
-  it("shows exporting state labels", () => {
+  it("shows exporting/saving state labels", () => {
     render(
       <BillExportActions
         disabled={false}
         isPdfExporting
         isExcelExporting
-        onExportPdf={vi.fn()}
-        onExportExcel={vi.fn()}
+        isCloudSaving
+        onDownloadPdf={vi.fn()}
+        onDownloadExcel={vi.fn()}
+        onSaveCloud={vi.fn()}
+        onOpenSavedFiles={vi.fn()}
       />
     );
 
@@ -41,5 +53,6 @@ describe("BillExportActions", () => {
     expect(exportingButtons).toHaveLength(2);
     expect(exportingButtons[0]).toBeDisabled();
     expect(exportingButtons[1]).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
   });
 });

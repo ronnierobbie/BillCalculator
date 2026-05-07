@@ -2,81 +2,62 @@
 
 A mobile-friendly HARTRON bill calculator workspace built with Next.js.
 
-It supports state-wise bill preparation for:
+Supported billing states:
 - Punjab
 - Haryana
 - Chandigarh
 
-The app keeps the existing HARTRON calculation formulas, adds local saved bill history, and improves export quality for PDF/Excel handoff.
+## What the app does
 
-## What The App Does
+- Calculates HARTRON billing rows from state-wise quantities, penalties, and advance inputs.
+- Keeps bill metadata (title, date, reference number, prepared by, notes).
+- Stores working bill history in browser `localStorage` (`consbill.savedBills.v1`).
+- Exports bill output to PDF and Excel.
+- Saves generated PDF/XLSX artifacts to Vercel Blob (private storage) through server routes.
+- Lists previously saved artifacts and allows server-mediated file download.
 
-- Calculates HARTRON billing rows from state-wise quantities, penalties, and advance amount inputs.
-- Lets users manage bill metadata (title, date, reference number, prepared by, notes).
-- Stores saved bills in browser `localStorage` (no backend, no auth).
-- Exports bill outputs to PDF and Excel with metadata-aware filenames.
-
-## Formula Assumptions
+## Formula assumptions
 
 Formula logic remains in `lib/calculator.ts`.
 
-- Entry type can be `BV` (Base Value) or `PV` (Product Value).
-- GST can be configured (default: 18%).
-- Consultancy rate is based on funding type:
+- Entry type: `BV` (Base Value) or `PV` (Product Value)
+- GST default: 18%
+- Consultancy rate by funding:
   - State Govt. funded: 4%
   - eCommittee funded: 2%
-- Deductions include:
-  - GST TDS on product base value (2%)
-  - GST TDS on consultancy charges (2%)
-  - TDS on consultancy charges (10%)
-  - State-wise penalty
-  - Amount already available with HARTRON
+- Deductions include GST TDS, TDS, state penalty, and amount already available with HARTRON.
 
-Saved bills are marked with `formulaVersion: hartron-v1`.
+## Export and cloud artifact flow
 
-## Saved Bills
+Local export actions remain available:
+- Download PDF
+- Download Excel
 
-Saved bills are local to the current browser profile.
+Additional cloud action:
+- Save PDF & Excel
 
-- Storage key: `consbill.savedBills.v1`
-- Includes both `input` and `result` for each saved bill.
-- Includes metadata and status (`draft` or `final`).
+Cloud save uploads three private Blob objects per bill artifact set:
+- `bills/{yyyy}/{mm}/{billId}/{safeBillTitle}.pdf`
+- `bills/{yyyy}/{mm}/{billId}/{safeBillTitle}.xlsx`
+- `bills/{yyyy}/{mm}/{billId}/manifest.json`
 
-Supported actions:
-- Save current bill
-- Save as copy
-- Open saved bill
-- Edit saved bill title/notes inline (non-modal)
-- Duplicate saved bill
-- Delete saved bill
-- Mark draft/final
-- Search/filter/sort saved bills for larger histories
+API routes:
+- `POST /api/bill-artifacts/upload`
+- `GET /api/bill-artifacts/list`
+- `GET /api/bill-artifacts/download?pathname=...`
 
-Unsaved changes indicator appears when an opened saved bill has edits not yet re-saved.
+## Vercel Blob configuration
 
-## Exports
+Required environment variable (server-side only):
+- `BLOB_READ_WRITE_TOKEN`
 
-Exports are generated client-side using dynamic imports (loaded only when needed):
-- `jspdf`
-- `jspdf-autotable`
-- `exceljs`
+Do not expose this token in client code.
 
-Filename format:
-- `HARTRON-Bill-{billTitle}-{billDate}.pdf`
-- `HARTRON-Bill-{billTitle}-{billDate}.xlsx`
-
-Export content includes:
-- Bill title
-- Bill date
-- Reference number
-- Funding type
-- GST percentage
-- Generated timestamp
-- Calculated bill table
-
-## Local Development
+## Local setup
 
 ```bash
+vercel link
+vercel env pull .env.local
 npm install
 npm run dev
 ```
@@ -85,16 +66,20 @@ Open `http://localhost:3000`.
 
 ## Validation
 
-Run:
-
 ```bash
 npm run lint
-npm run test
 npm run build
 ```
 
-## Scope Notes
+## Deployment
 
-- This app is web-only (Next.js).
-- No Android/APK/mobile-native workflow.
-- No backend/auth/database/cloud sync in this version.
+```bash
+vercel deploy
+vercel deploy --prod
+```
+
+## Scope notes
+
+- Web-only Next.js app.
+- No Android/APK/mobile-native work.
+- No backend auth/database sync added in this packet.
