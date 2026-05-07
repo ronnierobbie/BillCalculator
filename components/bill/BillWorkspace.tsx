@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calculator, Download, Moon, RefreshCcw, Save, Sun } from "lucide-react";
 import { calculateBill } from "@/lib/calculator";
 import {
@@ -8,9 +8,21 @@ import {
   DEFAULT_BILL_METADATA,
   SUPPORTED_STATES,
 } from "@/lib/bill-constants";
-import { exportBillToExcel, exportBillToPdf } from "@/lib/bill-export";
+import {
+  ExportPayload,
+  downloadGeneratedArtifact,
+  generateBillExcelArtifact,
+  generateBillPdfArtifact,
+} from "@/lib/bill-export";
+import { createBillArtifactId } from "@/lib/bill-artifacts";
 import { useSavedBills } from "@/hooks/useSavedBills";
-import { BillResult, BillWorkspaceState, SavedBill, SavedBillStatus } from "@/types/bill";
+import {
+  BillArtifactRecord,
+  BillResult,
+  BillWorkspaceState,
+  SavedBill,
+  SavedBillStatus,
+} from "@/types/bill";
 import { Button } from "@/components/ui/button";
 import { BillMetadataCard } from "@/components/bill/BillMetadataCard";
 import { ProjectSettingsCard } from "@/components/bill/ProjectSettingsCard";
@@ -20,6 +32,7 @@ import { AdvancePaymentCard } from "@/components/bill/AdvancePaymentCard";
 import { BillSummaryCard } from "@/components/bill/BillSummaryCard";
 import { BillOutputTable } from "@/components/bill/BillOutputTable";
 import { BillExportActions } from "@/components/bill/BillExportActions";
+import { BillArtifactsPanel } from "@/components/bill/BillArtifactsPanel";
 import { SavedBillsPanel } from "@/components/bill/SavedBillsPanel";
 
 const INITIAL_WORKSPACE: BillWorkspaceState = {
@@ -51,6 +64,10 @@ export function BillWorkspace() {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isPdfExporting, setIsPdfExporting] = useState(false);
   const [isExcelExporting, setIsExcelExporting] = useState(false);
+  const [isCloudSaving, setIsCloudSaving] = useState(false);
+  const [savedArtifacts, setSavedArtifacts] = useState<BillArtifactRecord[]>([]);
+  const [isArtifactsLoading, setIsArtifactsLoading] = useState(false);
+  const [artifactsError, setArtifactsError] = useState<string | null>(null);
 
   const {
     savedBills,
@@ -148,6 +165,15 @@ export function BillWorkspace() {
     setValidationError(null);
     setInfoMessage(null);
   };
+
+  const createExportPayload = useCallback(
+    (resolvedResult: BillResult): ExportPayload => ({
+      metadata: workspace.metadata,
+      input: calculatedInput,
+      result: resolvedResult,
+    }),
+    [workspace.metadata, calculatedInput]
+  );
 
   const handleCalculate = () => {
     if (totalQuantity === 0) {
@@ -327,7 +353,35 @@ export function BillWorkspace() {
     }
   };
 
-  const handleExportPdf = async () => {
+  const loadSavedArtifacts = useCallback(async () => {
+    setIsArtifactsLoading(true);
+    setArtifactsError(null);
+
+    try {
+      const response = await fetch("/api/bill-artifacts/list", { cache: "no-store" });
+      const body = (await response.json()) as {
+        artifacts?: BillArtifactRecord[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(body.error || "Unable to load saved files.");
+      }
+
+      setSavedArtifacts(body.artifacts || []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load saved files.";
+      setArtifactsError(message);
+    } finally {
+      setIsArtifactsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSavedArtifacts();
+  }, [loadSavedArtifacts]);
+
+  const handleDownloadPdf = async () => {
     if (!result) {
       return;
     }
@@ -336,11 +390,8 @@ export function BillWorkspace() {
     clearMessages();
 
     try {
-      await exportBillToPdf({
-        metadata: workspace.metadata,
-        input: calculatedInput,
-        result,
-      });
+      const pdfArtifact = await generateBillPdfArtifact(createExportPayload(result));
+      downloadGeneratedArtifact(pdfArtifact);
     } catch {
       setValidationError("PDF export failed. Please try again.");
     } finally {
@@ -348,7 +399,7 @@ export function BillWorkspace() {
     }
   };
 
-  const handleExportExcel = async () => {
+  const handleDownloadExcel = async () => {
     if (!result) {
       return;
     }
@@ -357,16 +408,115 @@ export function BillWorkspace() {
     clearMessages();
 
     try {
-      await exportBillToExcel({
-        metadata: workspace.metadata,
-        input: calculatedInput,
-        result,
-      });
+      const excelArtifact = await generateBillExcelArtifact(createExportPayload(result));
+      downloadGeneratedArtifact(excelArtifact);
     } catch {
       setValidationError("Excel export failed. Please try again.");
     } finally {
       setIsExcelExporting(false);
     }
+  };
+
+  const handleCloudSaveArtifacts = async () => {
+    if (!result) {
+      setValidationError("Calculate the bill before saving artifacts.");
+      return;
+    }
+
+    setIsCloudSaving(true);
+    clearMessages();
+
+    try {
+      const payload = createExportPayload(result);
+      const [pdfArtifact, excelArtifact] = await Promise.all([
+        generateBillPdfArtifact(payload),
+        generateBillExcelArtifact(payload),
+      ]);
+
+      const billId = activeBillId || createBillArtifactId();
+      const generatedAt = new Date().toISOString();
+
+      const formData = new FormData();
+      formData.append(
+        "pdf",
+        new File([pdfArtifact.blob], pdfArtifact.fileName, {
+          type: pdfArtifact.mimeType,
+        })
+      );
+      formData.append(
+        "excel",
+        new File([excelArtifact.blob], excelArtifact.fileName, {
+          type: excelArtifact.mimeType,
+        })
+      );
+      formData.append(
+        "metadata",
+        JSON.stringify({
+          billId,
+          title: workspace.metadata.title,
+          billDate: workspace.metadata.billDate,
+          referenceNumber: workspace.metadata.referenceNumber || null,
+          generatedAt,
+          result,
+        })
+      );
+
+      const response = await fetch("/api/bill-artifacts/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const body = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(body.error || "Unable to save artifacts to cloud.");
+      }
+
+      setInfoMessage("Saved PDF and Excel artifacts to Blob.");
+      await loadSavedArtifacts();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to save artifacts to cloud.";
+      setValidationError(message);
+    } finally {
+      setIsCloudSaving(false);
+    }
+  };
+
+  const handleDownloadSavedArtifact = async (pathname: string) => {
+    try {
+      const response = await fetch(
+        `/api/bill-artifacts/download?pathname=${encodeURIComponent(pathname)}`
+      );
+
+      if (!response.ok) {
+        const maybeError = (await response.text()) || "Unable to download file.";
+        throw new Error(maybeError);
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("content-disposition");
+      const fileNameMatch = contentDisposition?.match(/filename=\"?([^\";]+)\"?/i);
+      const fileName = fileNameMatch?.[1] || pathname.split("/").pop() || "artifact";
+
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to download saved file.";
+      setValidationError(message);
+    }
+  };
+
+  const scrollToSavedFiles = () => {
+    document.getElementById("saved-files-panel")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   return (
@@ -541,8 +691,11 @@ export function BillWorkspace() {
                   disabled={!result}
                   isPdfExporting={isPdfExporting}
                   isExcelExporting={isExcelExporting}
-                  onExportPdf={handleExportPdf}
-                  onExportExcel={handleExportExcel}
+                  isCloudSaving={isCloudSaving}
+                  onDownloadPdf={handleDownloadPdf}
+                  onDownloadExcel={handleDownloadExcel}
+                  onSaveCloud={handleCloudSaveArtifacts}
+                  onOpenSavedFiles={scrollToSavedFiles}
                 />
               </div>
             </div>
@@ -577,6 +730,17 @@ export function BillWorkspace() {
             onStatusChange={handleStatusChange}
           />
 
+          <div id="saved-files-panel">
+            <BillArtifactsPanel
+              artifacts={savedArtifacts}
+              isLoading={isArtifactsLoading}
+              error={artifactsError}
+              onRefresh={loadSavedArtifacts}
+              onDownloadPdf={handleDownloadSavedArtifact}
+              onDownloadExcel={handleDownloadSavedArtifact}
+            />
+          </div>
+
           <div className="vercel-panel p-4 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">Formula notes</p>
             <p className="mt-2 border-l-2 pl-3">Product total = Base value + GST on product.</p>
@@ -587,17 +751,30 @@ export function BillWorkspace() {
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-7xl grid-cols-4 gap-2">
+        <div className="mx-auto grid max-w-7xl grid-cols-5 gap-2">
           <Button size="sm" onClick={handleCalculate}>
             <Calculator className="h-4 w-4" />
           </Button>
           <Button size="sm" variant="outline" onClick={handleSave}>
             <Save className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" onClick={handleExportExcel} disabled={!result || isExcelExporting}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownloadExcel}
+            disabled={!result || isExcelExporting}
+          >
             <Download className="h-4 w-4" />
           </Button>
-          <Button size="sm" onClick={handleExportPdf} disabled={!result || isPdfExporting}>
+          <Button size="sm" onClick={handleDownloadPdf} disabled={!result || isPdfExporting}>
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCloudSaveArtifacts}
+            disabled={!result || isCloudSaving}
+          >
             <Download className="h-4 w-4" />
           </Button>
         </div>

@@ -1,29 +1,18 @@
 import { SUPPORTED_STATES } from "@/lib/bill-constants";
+import { buildBillArtifactFilename } from "@/lib/bill-artifacts";
 import { BillInput, BillMetadata, BillResult } from "@/types/bill";
 
-type ExportPayload = {
+export type ExportPayload = {
   metadata: BillMetadata;
   input: BillInput;
   result: BillResult;
 };
 
-function sanitizeFilenamePart(value: string, fallback: string): string {
-  const cleaned = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return cleaned || fallback;
-}
-
-function formatDateForFilename(value: string): string {
-  if (!value) {
-    return new Intl.DateTimeFormat("en-CA").format(new Date());
-  }
-
-  return sanitizeFilenamePart(value, new Intl.DateTimeFormat("en-CA").format(new Date()));
-}
+export type GeneratedBillArtifact = {
+  fileName: string;
+  mimeType: string;
+  blob: Blob;
+};
 
 function formatDateForDisplay(value: string): string {
   if (!value) {
@@ -40,12 +29,6 @@ function formatDateForDisplay(value: string): string {
     month: "short",
     year: "numeric",
   }).format(parsed);
-}
-
-function createExportFilename(metadata: BillMetadata, ext: "pdf" | "xlsx"): string {
-  const title = sanitizeFilenamePart(metadata.title || "bill", "bill");
-  const billDate = formatDateForFilename(metadata.billDate);
-  return `HARTRON-Bill-${title}-${billDate}.${ext}`;
 }
 
 function formatFundingType(projectFunding: BillInput["projectFunding"]): string {
@@ -69,7 +52,18 @@ function getGeneratedTimestamp(): string {
   }).format(new Date());
 }
 
-export async function exportBillToPdf(payload: ExportPayload): Promise<void> {
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function generateBillPdfArtifact(
+  payload: ExportPayload
+): Promise<GeneratedBillArtifact> {
   const [jsPdfModule, autoTableModule] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -79,7 +73,7 @@ export async function exportBillToPdf(payload: ExportPayload): Promise<void> {
     (jsPdfModule as unknown as { jsPDF?: new () => unknown }).jsPDF) as new () => {
       setFontSize: (size: number) => void;
       text: (text: string, x: number, y: number) => void;
-      save: (fileName: string) => void;
+      output: (type: "arraybuffer") => ArrayBuffer;
     };
 
   const autoTable = ((autoTableModule as unknown as { autoTable?: (...args: unknown[]) => void; default?: (...args: unknown[]) => void }).autoTable ||
@@ -128,10 +122,19 @@ export async function exportBillToPdf(payload: ExportPayload): Promise<void> {
     headStyles: { fillColor: [20, 20, 20] },
   });
 
-  doc.save(createExportFilename(payload.metadata, "pdf"));
+  const arrayBuffer = doc.output("arraybuffer");
+  const blob = new Blob([arrayBuffer], { type: "application/pdf" });
+
+  return {
+    fileName: buildBillArtifactFilename(payload.metadata, "pdf"),
+    mimeType: "application/pdf",
+    blob,
+  };
 }
 
-export async function exportBillToExcel(payload: ExportPayload): Promise<void> {
+export async function generateBillExcelArtifact(
+  payload: ExportPayload
+): Promise<GeneratedBillArtifact> {
   const excelModule = await import("exceljs");
 
   const WorkbookCtor = (excelModule as unknown as { Workbook?: new () => unknown }).Workbook;
@@ -190,10 +193,23 @@ export async function exportBillToExcel(payload: ExportPayload): Promise<void> {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
 
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = createExportFilename(payload.metadata, "xlsx");
-  anchor.click();
-  window.URL.revokeObjectURL(url);
+  return {
+    fileName: buildBillArtifactFilename(payload.metadata, "xlsx"),
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    blob,
+  };
+}
+
+export async function exportBillToPdf(payload: ExportPayload): Promise<void> {
+  const artifact = await generateBillPdfArtifact(payload);
+  downloadBlob(artifact.blob, artifact.fileName);
+}
+
+export async function exportBillToExcel(payload: ExportPayload): Promise<void> {
+  const artifact = await generateBillExcelArtifact(payload);
+  downloadBlob(artifact.blob, artifact.fileName);
+}
+
+export function downloadGeneratedArtifact(artifact: GeneratedBillArtifact): void {
+  downloadBlob(artifact.blob, artifact.fileName);
 }

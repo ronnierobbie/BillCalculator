@@ -47,3 +47,22 @@ export type SavedBill = {
   result: BillResult;
   notes?: string;
 };
+
+export type BillArtifactManifest = {
+  billId: string;
+  title: string;
+  billDate: string;
+  referenceNumber: string | null;
+  generatedAt: string;
+  pdfPathname: string;
+  excelPathname: string;
+  pdfUrl?: string;
+  excelUrl?: string;
+  totalQuantity?: number;
+  finalPaymentTotal?: number;
+};
+
+export type BillArtifactRecord = BillArtifactManifest & {
+  manifestPathname: string;
+  manifestUrl?: string;
+};
