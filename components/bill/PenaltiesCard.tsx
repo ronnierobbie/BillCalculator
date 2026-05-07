@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -10,6 +11,12 @@ type PenaltiesCardProps = {
 };
 
 export function PenaltiesCard({ penalties, onChange }: PenaltiesCardProps) {
+  const updateAt = (index: number, value: number) => {
+    const next = [...penalties] as [number, number, number];
+    next[index] = Math.max(0, value);
+    onChange(next);
+  };
+
   return (
     <Card className="vercel-panel">
       <CardHeader>
@@ -20,20 +27,40 @@ export function PenaltiesCard({ penalties, onChange }: PenaltiesCardProps) {
         {STATES.map((state, index) => (
           <div
             key={state}
-            className="grid items-center gap-3 rounded-md px-1 py-1 transition hover:bg-accent sm:grid-cols-[1fr_132px]"
+            className="grid items-center gap-3 rounded-md px-1 py-1 transition hover:bg-accent sm:grid-cols-[1fr_172px]"
           >
             <Label className="text-sm text-muted-foreground">{state}</Label>
-            <Input
-              className="w-full text-right font-mono tabular-nums"
-              type="number"
-              min="0"
-              value={penalties[index]}
-              onChange={(event) => {
-                const next = [...penalties] as [number, number, number];
-                next[index] = parseFloat(event.target.value) || 0;
-                onChange(next);
-              }}
-            />
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-10 px-0"
+                onClick={() => updateAt(index, penalties[index] - 1)}
+                aria-label={`Decrease ${state} penalty`}
+              >
+                -
+              </Button>
+              <Input
+                className="w-full text-right font-mono tabular-nums"
+                type="number"
+                min="0"
+                step="1"
+                inputMode="decimal"
+                value={penalties[index]}
+                onChange={(event) => {
+                  updateAt(index, parseFloat(event.target.value) || 0);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-10 px-0"
+                onClick={() => updateAt(index, penalties[index] + 1)}
+                aria-label={`Increase ${state} penalty`}
+              >
+                +
+              </Button>
+            </div>
           </div>
         ))}
       </CardContent>
