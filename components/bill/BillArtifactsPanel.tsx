@@ -6,6 +6,7 @@ import { BillArtifactRecord } from "@/types/bill";
 type BillArtifactsPanelProps = {
   artifacts: BillArtifactRecord[];
   isLoading: boolean;
+  hasLoaded: boolean;
   error: string | null;
   onRefresh: () => void;
   onDownloadPdf: (pathname: string) => void;
@@ -27,6 +28,7 @@ function formatDate(value: string): string {
 export function BillArtifactsPanel({
   artifacts,
   isLoading,
+  hasLoaded,
   error,
   onRefresh,
   onDownloadPdf,
@@ -41,7 +43,7 @@ export function BillArtifactsPanel({
         </div>
         <Button variant="outline" size="sm" onClick={onRefresh}>
           <RefreshCcw className="h-3.5 w-3.5" />
-          Refresh
+          {hasLoaded ? "Refresh" : "Load files"}
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -53,7 +55,13 @@ export function BillArtifactsPanel({
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading files...</p>}
 
-        {!isLoading && artifacts.length === 0 && !error && (
+        {!isLoading && !hasLoaded && !error && (
+          <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            Files are not loaded yet. Tap &quot;Load files&quot;.
+          </p>
+        )}
+
+        {!isLoading && hasLoaded && artifacts.length === 0 && !error && (
           <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
             No cloud artifacts saved yet.
           </p>

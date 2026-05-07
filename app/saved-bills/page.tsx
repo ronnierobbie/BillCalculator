@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FilePlus2 } from "lucide-react";
@@ -14,6 +14,9 @@ export default function SavedBillsPage() {
   const router = useRouter();
   const [savedArtifacts, setSavedArtifacts] = useState<BillArtifactRecord[]>([]);
   const [isArtifactsLoading, setIsArtifactsLoading] = useState(false);
+  const [artifactsCursor, setArtifactsCursor] = useState<string | null>(null);
+  const [hasMoreArtifacts, setHasMoreArtifacts] = useState(false);
+  const [hasLoadedArtifacts, setHasLoadedArtifacts] = useState(false);
   const [artifactsError, setArtifactsError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
@@ -32,14 +35,24 @@ export default function SavedBillsPage() {
     setInfoMessage(null);
   };
 
-  const loadSavedArtifacts = useCallback(async () => {
+  const loadSavedArtifacts = useCallback(async (append = false) => {
     setIsArtifactsLoading(true);
     setArtifactsError(null);
 
     try {
-      const response = await fetch("/api/bill-artifacts/list", { cache: "no-store" });
+      const query = new URLSearchParams();
+      query.set("maxItems", "20");
+      if (append && artifactsCursor) {
+        query.set("cursor", artifactsCursor);
+      }
+
+      const response = await fetch(`/api/bill-artifacts/list?${query.toString()}`, {
+        cache: "no-store",
+      });
       const body = (await response.json()) as {
         artifacts?: BillArtifactRecord[];
+        nextCursor?: string | null;
+        hasMore?: boolean;
         error?: string;
       };
 
@@ -53,18 +66,27 @@ export default function SavedBillsPage() {
           !artifact.title.toLowerCase().includes("runtime check")
       );
 
-      setSavedArtifacts(cleanedArtifacts);
+      setSavedArtifacts((previous) => {
+        if (!append) {
+          return cleanedArtifacts;
+        }
+
+        const existing = new Set(previous.map((item) => item.manifestPathname));
+        const incoming = cleanedArtifacts.filter(
+          (item) => !existing.has(item.manifestPathname)
+        );
+        return [...previous, ...incoming];
+      });
+      setHasLoadedArtifacts(true);
+      setHasMoreArtifacts(Boolean(body.hasMore));
+      setArtifactsCursor(body.nextCursor || null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load saved files.";
       setArtifactsError(message);
     } finally {
       setIsArtifactsLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    void loadSavedArtifacts();
-  }, [loadSavedArtifacts]);
+  }, [artifactsCursor]);
 
   const handleDownloadSavedArtifact = async (pathname: string) => {
     clearMessages();
@@ -154,9 +176,9 @@ export default function SavedBillsPage() {
 
   const summaryText = useMemo(() => {
     const localCount = savedBills.length;
-    const cloudCount = savedArtifacts.length;
+    const cloudCount = hasLoadedArtifacts ? savedArtifacts.length : 0;
     return `${localCount} local draft${localCount === 1 ? "" : "s"} • ${cloudCount} cloud artifact${cloudCount === 1 ? "" : "s"}`;
-  }, [savedArtifacts.length, savedBills.length]);
+  }, [hasLoadedArtifacts, savedArtifacts.length, savedBills.length]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -218,11 +240,27 @@ export default function SavedBillsPage() {
             <BillArtifactsPanel
               artifacts={savedArtifacts}
               isLoading={isArtifactsLoading}
+              hasLoaded={hasLoadedArtifacts}
               error={artifactsError}
-              onRefresh={loadSavedArtifacts}
+              onRefresh={() => {
+                setArtifactsCursor(null);
+                setHasMoreArtifacts(false);
+                void loadSavedArtifacts(false);
+              }}
               onDownloadPdf={handleDownloadSavedArtifact}
               onDownloadExcel={handleDownloadSavedArtifact}
             />
+            {hasLoadedArtifacts && hasMoreArtifacts && (
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  onClick={() => void loadSavedArtifacts(true)}
+                  disabled={isArtifactsLoading}
+                >
+                  Load more files
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </main>

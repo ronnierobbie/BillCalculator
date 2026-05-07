@@ -53,40 +53,27 @@ export async function GET(request: Request) {
   }
 
   const requestUrl = new URL(request.url);
-  const requestedMaxItems = Number(requestUrl.searchParams.get("maxItems") || "60");
+  const requestedMaxItems = Number(requestUrl.searchParams.get("maxItems") || "20");
   const maxItems = Number.isFinite(requestedMaxItems)
-    ? Math.min(Math.max(requestedMaxItems, 10), 200)
-    : 60;
+    ? Math.min(Math.max(requestedMaxItems, 5), 50)
+    : 20;
 
-  const requestedMaxPages = Number(requestUrl.searchParams.get("maxPages") || "2");
-  const maxPages = Number.isFinite(requestedMaxPages)
-    ? Math.min(Math.max(requestedMaxPages, 1), 10)
-    : 2;
+  const cursorParam = requestUrl.searchParams.get("cursor") || undefined;
 
   const manifestBlobs: Array<{ pathname: string; url: string }> = [];
-  let cursor: string | undefined;
-  let hasMore = true;
-  let visitedPages = 0;
+  const page = await list({
+    prefix: BILL_ARTIFACT_PREFIX,
+    limit: 300,
+    cursor: cursorParam,
+  });
 
-  while (hasMore && visitedPages < maxPages && manifestBlobs.length < maxItems) {
-    const page = await list({
-      prefix: BILL_ARTIFACT_PREFIX,
-      limit: 200,
-      cursor,
-    });
-    visitedPages += 1;
-
-    for (const blob of page.blobs) {
-      if (blob.pathname.endsWith("/manifest.json")) {
-        manifestBlobs.push({ pathname: blob.pathname, url: blob.url });
-        if (manifestBlobs.length >= maxItems) {
-          break;
-        }
+  for (const blob of page.blobs) {
+    if (blob.pathname.endsWith("/manifest.json")) {
+      manifestBlobs.push({ pathname: blob.pathname, url: blob.url });
+      if (manifestBlobs.length >= maxItems) {
+        break;
       }
     }
-
-    hasMore = page.hasMore;
-    cursor = page.cursor;
   }
 
   const records = await Promise.all(
@@ -126,8 +113,10 @@ export async function GET(request: Request) {
     {
       artifacts,
       groupedByBillId,
-      isPartial: hasMore || visitedPages >= maxPages || manifestBlobs.length >= maxItems,
-      limits: { maxItems, maxPages },
+      isPartial: page.hasMore || manifestBlobs.length >= maxItems,
+      hasMore: page.hasMore,
+      nextCursor: page.hasMore ? page.cursor : null,
+      limits: { maxItems },
     },
     {
       headers: {
