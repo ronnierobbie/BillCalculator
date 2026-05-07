@@ -27,7 +27,7 @@ describe("BillExportActions", () => {
     await user.click(screen.getByRole("button", { name: "Download Excel" }));
     await user.click(screen.getByRole("button", { name: "Download PDF" }));
     await user.click(screen.getByRole("button", { name: "Save PDF & Excel" }));
-    await user.click(screen.getByRole("button", { name: "Saved files" }));
+    await user.click(screen.getByRole("button", { name: "Open saved files" }));
 
     expect(onDownloadExcel).toHaveBeenCalledTimes(1);
     expect(onDownloadPdf).toHaveBeenCalledTimes(1);

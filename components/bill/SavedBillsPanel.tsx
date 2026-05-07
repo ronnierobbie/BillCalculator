@@ -131,9 +131,9 @@ export function SavedBillsPanel({
   return (
     <Card className="vercel-panel">
       <CardHeader>
-        <CardTitle className="vercel-title">Saved bills</CardTitle>
+        <CardTitle className="vercel-title">Saved bills (local drafts)</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Local history stored in this browser only
+          Editable bill workspace history in this browser
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -211,7 +211,9 @@ export function SavedBillsPanel({
                       key={savedBill.id}
                       data-testid={`saved-bill-card-${savedBill.id}`}
                       className={`rounded-md border p-3 ${
-                        isActive ? "border-foreground/30 bg-accent/50" : "border-border"
+                        isActive
+                          ? "border-foreground/50 bg-accent/70 ring-2 ring-foreground/20"
+                          : "border-border"
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -281,7 +283,7 @@ export function SavedBillsPanel({
                         <Button
                           data-testid={`saved-bill-open-${savedBill.id}`}
                           size="sm"
-                          variant="outline"
+                          variant={isActive ? "default" : "outline"}
                           onClick={() => onOpen(savedBill.id)}
                         >
                           <FolderOpen className="h-3.5 w-3.5" />

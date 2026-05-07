@@ -70,11 +70,6 @@ export function BillArtifactsPanel({
                   </span>
                 </div>
 
-                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                  <p>Bill ID: {artifact.billId}</p>
-                  <p>Manifest: {artifact.manifestPathname}</p>
-                </div>
-
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     size="sm"
