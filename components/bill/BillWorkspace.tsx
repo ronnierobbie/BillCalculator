@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Calculator, Download, Moon, RefreshCcw, Save, Sun } from "lucide-react";
 import { calculateBill } from "@/lib/calculator";
 import {
@@ -17,7 +19,6 @@ import {
 import { createBillArtifactId } from "@/lib/bill-artifacts";
 import { useSavedBills } from "@/hooks/useSavedBills";
 import {
-  BillArtifactRecord,
   BillResult,
   BillWorkspaceState,
   SavedBill,
@@ -32,8 +33,6 @@ import { AdvancePaymentCard } from "@/components/bill/AdvancePaymentCard";
 import { BillSummaryCard } from "@/components/bill/BillSummaryCard";
 import { BillOutputTable } from "@/components/bill/BillOutputTable";
 import { BillExportActions } from "@/components/bill/BillExportActions";
-import { BillArtifactsPanel } from "@/components/bill/BillArtifactsPanel";
-import { SavedBillsPanel } from "@/components/bill/SavedBillsPanel";
 
 const INITIAL_WORKSPACE: BillWorkspaceState = {
   metadata: DEFAULT_BILL_METADATA,
@@ -49,6 +48,8 @@ function createSnapshot(
 }
 
 export function BillWorkspace() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [workspace, setWorkspace] = useState<BillWorkspaceState>(INITIAL_WORKSPACE);
   const [result, setResult] = useState<BillResult | null>(null);
   const [hasAdvanceAmount, setHasAdvanceAmount] = useState<"No" | "Yes">("No");
@@ -65,21 +66,16 @@ export function BillWorkspace() {
   const [isPdfExporting, setIsPdfExporting] = useState(false);
   const [isExcelExporting, setIsExcelExporting] = useState(false);
   const [isCloudSaving, setIsCloudSaving] = useState(false);
-  const [savedArtifacts, setSavedArtifacts] = useState<BillArtifactRecord[]>([]);
-  const [isArtifactsLoading, setIsArtifactsLoading] = useState(false);
-  const [artifactsError, setArtifactsError] = useState<string | null>(null);
 
   const {
-    savedBills,
     isStorageReady,
     saveBill,
     saveBillAsCopy,
     openSavedBill,
-    updateSavedBillDetails,
-    duplicateSavedBill,
-    deleteSavedBill,
-    setSavedBillStatus,
   } = useSavedBills();
+
+  const queryOpenBillId = searchParams.get("openBillId");
+  const queryNewBill = searchParams.get("newBill");
 
   const numberFormatter = useMemo(
     () =>
@@ -251,7 +247,7 @@ export function BillWorkspace() {
     setInfoMessage(`Saved copy "${savedBill.title}".`);
   };
 
-  const applyOpenedBill = (savedBill: SavedBill) => {
+  const applyOpenedBill = useCallback((savedBill: SavedBill) => {
     setWorkspace({ metadata: savedBill.metadata, input: savedBill.input });
     setResult(savedBill.result);
     setActiveBillId(savedBill.id);
@@ -262,124 +258,44 @@ export function BillWorkspace() {
     setHasAdvanceAmount(recoveredAdvance > 0 ? "Yes" : "No");
     setValueEnteredAs("Per State");
     setTotalPaid(recoveredAdvance);
-    clearMessages();
-  };
+    setValidationError(null);
+    setInfoMessage(null);
+  }, []);
 
-  const handleOpenSavedBill = (billId: string) => {
-    const savedBill = openSavedBill(billId);
+  useEffect(() => {
+    if (!queryNewBill) {
+      return;
+    }
+
+    handleReset();
+    setInfoMessage("Started a new bill.");
+    router.replace("/", { scroll: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryNewBill, router]);
+
+  useEffect(() => {
+    if (!isStorageReady || !queryOpenBillId) {
+      return;
+    }
+
+    if (activeBillId === queryOpenBillId) {
+      router.replace("/", { scroll: false });
+      return;
+    }
+
+    const savedBill = openSavedBill(queryOpenBillId);
     if (!savedBill) {
-      setValidationError("Saved bill not found.");
+      setValidationError("Requested saved bill was not found.");
+      router.replace("/", { scroll: false });
       return;
     }
 
     applyOpenedBill(savedBill);
     setInfoMessage(`Opened "${savedBill.title}".`);
-  };
-
-  const handleDuplicateSavedBill = (billId: string) => {
-    const duplicate = duplicateSavedBill(billId);
-    if (!duplicate) {
-      setValidationError("Saved bill not found.");
-      return;
-    }
-
-    applyOpenedBill(duplicate);
-    setInfoMessage(`Duplicated as "${duplicate.title}".`);
-  };
-
-  const handleEditSavedBill = (
-    billId: string,
-    details: { title: string; notes: string }
-  ) => {
-    const current = savedBills.find((item) => item.id === billId);
-    if (!current) {
-      setValidationError("Saved bill not found.");
-      return;
-    }
-
-    if (!details.title.trim()) {
-      setValidationError("Bill title cannot be empty.");
-      return;
-    }
-
-    const updated = updateSavedBillDetails(billId, details);
-    if (!updated) {
-      setValidationError("Unable to update saved bill details.");
-      return;
-    }
-
-    if (activeBillId === billId) {
-      setWorkspace((previous) => ({ ...previous, metadata: updated.metadata }));
-      setLastSavedSnapshot(
-        createSnapshot(
-          { metadata: updated.metadata, input: workspace.input },
-          result,
-          activeBillStatus
-        )
-      );
-    }
-
-    setInfoMessage("Saved bill details updated.");
-  };
-
-  const handleDeleteSavedBill = (billId: string) => {
-    const current = savedBills.find((item) => item.id === billId);
-    if (!current) {
-      return;
-    }
-
-    const confirmDelete = window.confirm(`Delete saved bill "${current.title}"?`);
-    if (!confirmDelete) {
-      return;
-    }
-
-    deleteSavedBill(billId);
-
-    if (activeBillId === billId) {
-      setActiveBillId(null);
-      setLastSavedSnapshot(null);
-      setActiveBillStatus("draft");
-    }
-
-    setInfoMessage("Saved bill deleted.");
-  };
-
-  const handleStatusChange = (billId: string, status: SavedBillStatus) => {
-    setSavedBillStatus(billId, status);
-
-    if (activeBillId === billId) {
-      setActiveBillStatus(status);
-      setLastSavedSnapshot(createSnapshot(workspace, result, status));
-    }
-  };
-
-  const loadSavedArtifacts = useCallback(async () => {
-    setIsArtifactsLoading(true);
-    setArtifactsError(null);
-
-    try {
-      const response = await fetch("/api/bill-artifacts/list", { cache: "no-store" });
-      const body = (await response.json()) as {
-        artifacts?: BillArtifactRecord[];
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(body.error || "Unable to load saved files.");
-      }
-
-      setSavedArtifacts(body.artifacts || []);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to load saved files.";
-      setArtifactsError(message);
-    } finally {
-      setIsArtifactsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadSavedArtifacts();
-  }, [loadSavedArtifacts]);
+    router.replace("/", { scroll: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [activeBillId, applyOpenedBill, isStorageReady, openSavedBill, queryOpenBillId, router]);
 
   const handleDownloadPdf = async () => {
     if (!result) {
@@ -473,7 +389,6 @@ export function BillWorkspace() {
       }
 
       setInfoMessage("Saved PDF and Excel artifacts to Blob.");
-      await loadSavedArtifacts();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to save artifacts to cloud.";
@@ -483,40 +398,8 @@ export function BillWorkspace() {
     }
   };
 
-  const handleDownloadSavedArtifact = async (pathname: string) => {
-    try {
-      const response = await fetch(
-        `/api/bill-artifacts/download?pathname=${encodeURIComponent(pathname)}`
-      );
-
-      if (!response.ok) {
-        const maybeError = (await response.text()) || "Unable to download file.";
-        throw new Error(maybeError);
-      }
-
-      const blob = await response.blob();
-      const contentDisposition = response.headers.get("content-disposition");
-      const fileNameMatch = contentDisposition?.match(/filename=\"?([^\";]+)\"?/i);
-      const fileName = fileNameMatch?.[1] || pathname.split("/").pop() || "artifact";
-
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = fileName;
-      anchor.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to download saved file.";
-      setValidationError(message);
-    }
-  };
-
-  const scrollToSavedFiles = () => {
-    document.getElementById("saved-files-panel")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+  const openSavedFilesPage = () => {
+    router.push("/saved-bills#saved-files-panel");
   };
 
   return (
@@ -528,6 +411,17 @@ export function BillWorkspace() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">HARTRON Bill Workspace</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleReset}>
+              New bill
+            </Button>
+            <Link
+              href="/saved-bills"
+              className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              Open saved bills
+            </Link>
           </div>
           <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
             <span className="rounded-md border px-2 py-1">
@@ -557,20 +451,6 @@ export function BillWorkspace() {
               <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                 Mobile-friendly bill workflow with local saved history and export-ready outputs.
               </p>
-            </div>
-            <div className="hidden gap-2 sm:flex">
-              <Button variant="outline" onClick={handleReset}>
-                <RefreshCcw className="h-4 w-4" />
-                Reset
-              </Button>
-              <Button onClick={handleCalculate}>
-                <Calculator className="h-4 w-4" />
-                Calculate
-              </Button>
-              <Button variant="outline" onClick={handleSave}>
-                <Save className="h-4 w-4" />
-                Save
-              </Button>
             </div>
           </div>
 
@@ -676,6 +556,25 @@ export function BillWorkspace() {
             }}
           />
 
+          <section className="vercel-panel border p-4 sm:p-5">
+            <p className="vercel-kicker">Calculation actions</p>
+            <h2 className="mt-1 text-lg font-semibold">After entering values, calculate the bill</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleReset}>
+                <RefreshCcw className="h-4 w-4" />
+                Reset
+              </Button>
+              <Button onClick={handleCalculate}>
+                <Calculator className="h-4 w-4" />
+                Calculate
+              </Button>
+              <Button variant="outline" onClick={handleSave}>
+                <Save className="h-4 w-4" />
+                Save
+              </Button>
+            </div>
+          </section>
+
           <section className="space-y-4">
             <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -695,7 +594,7 @@ export function BillWorkspace() {
                   onDownloadPdf={handleDownloadPdf}
                   onDownloadExcel={handleDownloadExcel}
                   onSaveCloud={handleCloudSaveArtifacts}
-                  onOpenSavedFiles={scrollToSavedFiles}
+                  onOpenSavedFiles={openSavedFilesPage}
                 />
               </div>
             </div>
@@ -713,33 +612,7 @@ export function BillWorkspace() {
             status={activeBillStatus}
             hasUnsavedChanges={hasUnsavedChanges}
             numberFormatter={numberFormatter}
-            onCalculate={handleCalculate}
-            onReset={handleReset}
-            onSave={handleSave}
           />
-
-          <SavedBillsPanel
-            savedBills={savedBills}
-            activeBillId={activeBillId}
-            isStorageReady={isStorageReady}
-            hasUnsavedChanges={hasUnsavedChanges}
-            onOpen={handleOpenSavedBill}
-            onDuplicate={handleDuplicateSavedBill}
-            onEditDetails={handleEditSavedBill}
-            onDelete={handleDeleteSavedBill}
-            onStatusChange={handleStatusChange}
-          />
-
-          <div id="saved-files-panel">
-            <BillArtifactsPanel
-              artifacts={savedArtifacts}
-              isLoading={isArtifactsLoading}
-              error={artifactsError}
-              onRefresh={loadSavedArtifacts}
-              onDownloadPdf={handleDownloadSavedArtifact}
-              onDownloadExcel={handleDownloadSavedArtifact}
-            />
-          </div>
 
           <div className="vercel-panel p-4 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">Formula notes</p>

@@ -1,5 +1,3 @@
-import { Calculator, RefreshCcw, Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BillInput, SavedBillStatus } from "@/types/bill";
 
@@ -11,9 +9,6 @@ type BillSummaryCardProps = {
   status: SavedBillStatus;
   hasUnsavedChanges: boolean;
   numberFormatter: Intl.NumberFormat;
-  onCalculate: () => void;
-  onReset: () => void;
-  onSave: () => void;
 };
 
 export function BillSummaryCard({
@@ -24,9 +19,6 @@ export function BillSummaryCard({
   status,
   hasUnsavedChanges,
   numberFormatter,
-  onCalculate,
-  onReset,
-  onSave,
 }: BillSummaryCardProps) {
   return (
     <Card className="vercel-panel">
@@ -81,21 +73,6 @@ export function BillSummaryCard({
             Unsaved changes in the current bill.
           </div>
         )}
-
-        <div className="grid gap-2 border-t pt-4">
-          <Button className="w-full justify-between" onClick={onCalculate}>
-            Calculate
-            <Calculator className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" className="w-full justify-between" onClick={onSave}>
-            Save
-            <Save className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" className="w-full justify-between" onClick={onReset}>
-            Reset
-            <RefreshCcw className="h-4 w-4" />
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );

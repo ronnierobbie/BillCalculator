@@ -41,7 +41,7 @@ export function BillExportActions({
         {isCloudSaving ? "Saving..." : "Save PDF & Excel"}
       </Button>
       <Button variant="outline" onClick={onOpenSavedFiles}>
-        Saved files
+        Open saved files
       </Button>
     </div>
   );

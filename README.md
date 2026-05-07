@@ -12,6 +12,7 @@ Supported billing states:
 - Calculates HARTRON billing rows from state-wise quantities, penalties, and advance inputs.
 - Keeps bill metadata (title, date, reference number, prepared by, notes).
 - Stores working bill history in browser `localStorage` (`consbill.savedBills.v1`).
+- Provides a dedicated `/saved-bills` page for saved draft management and cloud file retrieval.
 - Exports bill output to PDF and Excel.
 - Saves generated PDF/XLSX artifacts to Vercel Blob (private storage) through server routes.
 - Lists previously saved artifacts and allows server-mediated file download.
@@ -35,6 +36,7 @@ Local export actions remain available:
 
 Additional cloud action:
 - Save PDF & Excel
+- Open saved files (navigates to `/saved-bills`)
 
 Cloud save uploads three private Blob objects per bill artifact set:
 - `bills/{yyyy}/{mm}/{billId}/{safeBillTitle}.pdf`
