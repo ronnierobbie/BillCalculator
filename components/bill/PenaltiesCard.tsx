@@ -41,7 +41,7 @@ export function PenaltiesCard({ penalties, onChange }: PenaltiesCardProps) {
                 -
               </Button>
               <Input
-                className="w-full text-right font-mono tabular-nums"
+                className="w-full text-left font-mono tabular-nums sm:text-right"
                 type="number"
                 min="0"
                 step="1"
