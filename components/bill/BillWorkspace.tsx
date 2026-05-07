@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Calculator, Download, Moon, RefreshCcw, Save, Sun } from "lucide-react";
 import { calculateBill } from "@/lib/calculator";
 import {
@@ -49,7 +49,8 @@ function createSnapshot(
 
 export function BillWorkspace() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [queryOpenBillId, setQueryOpenBillId] = useState<string | null>(null);
+  const [queryNewBill, setQueryNewBill] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<BillWorkspaceState>(INITIAL_WORKSPACE);
   const [result, setResult] = useState<BillResult | null>(null);
   const [hasAdvanceAmount, setHasAdvanceAmount] = useState<"No" | "Yes">("No");
@@ -74,8 +75,15 @@ export function BillWorkspace() {
     openSavedBill,
   } = useSavedBills();
 
-  const queryOpenBillId = searchParams.get("openBillId");
-  const queryNewBill = searchParams.get("newBill");
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    setQueryOpenBillId(params.get("openBillId"));
+    setQueryNewBill(params.get("newBill"));
+  }, []);
 
   const numberFormatter = useMemo(
     () =>
@@ -269,6 +277,7 @@ export function BillWorkspace() {
 
     handleReset();
     setInfoMessage("Started a new bill.");
+    setQueryNewBill(null);
     router.replace("/", { scroll: false });
     window.scrollTo({ top: 0, behavior: "smooth" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -280,6 +289,7 @@ export function BillWorkspace() {
     }
 
     if (activeBillId === queryOpenBillId) {
+      setQueryOpenBillId(null);
       router.replace("/", { scroll: false });
       return;
     }
@@ -287,12 +297,14 @@ export function BillWorkspace() {
     const savedBill = openSavedBill(queryOpenBillId);
     if (!savedBill) {
       setValidationError("Requested saved bill was not found.");
+      setQueryOpenBillId(null);
       router.replace("/", { scroll: false });
       return;
     }
 
     applyOpenedBill(savedBill);
     setInfoMessage(`Opened "${savedBill.title}".`);
+    setQueryOpenBillId(null);
     router.replace("/", { scroll: false });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [activeBillId, applyOpenedBill, isStorageReady, openSavedBill, queryOpenBillId, router]);
@@ -465,19 +477,6 @@ export function BillWorkspace() {
               {infoMessage}
             </div>
           )}
-
-          <section className="grid gap-3 sm:grid-cols-3">
-            {[
-              ["Total Quantity", totalQuantity.toString()],
-              ["Penalties", numberFormatter.format(totalPenalties)],
-              ["Advance", numberFormatter.format(totalAlreadyPaid)],
-            ].map(([label, value]) => (
-              <div key={label} className="vercel-panel p-4">
-                <p className="vercel-kicker">{label}</p>
-                <p className="mt-2 font-mono text-2xl font-semibold tabular-nums">{value}</p>
-              </div>
-            ))}
-          </section>
 
           <BillMetadataCard
             metadata={workspace.metadata}

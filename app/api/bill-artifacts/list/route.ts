@@ -44,7 +44,7 @@ function toRecord(
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return Response.json(
       { error: "Blob storage is not configured. Missing BLOB_READ_WRITE_TOKEN." },
@@ -52,21 +52,36 @@ export async function GET() {
     );
   }
 
-  const manifestBlobs: Array<{ pathname: string; url: string }> = [];
+  const requestUrl = new URL(request.url);
+  const requestedMaxItems = Number(requestUrl.searchParams.get("maxItems") || "60");
+  const maxItems = Number.isFinite(requestedMaxItems)
+    ? Math.min(Math.max(requestedMaxItems, 10), 200)
+    : 60;
 
+  const requestedMaxPages = Number(requestUrl.searchParams.get("maxPages") || "2");
+  const maxPages = Number.isFinite(requestedMaxPages)
+    ? Math.min(Math.max(requestedMaxPages, 1), 10)
+    : 2;
+
+  const manifestBlobs: Array<{ pathname: string; url: string }> = [];
   let cursor: string | undefined;
   let hasMore = true;
+  let visitedPages = 0;
 
-  while (hasMore) {
+  while (hasMore && visitedPages < maxPages && manifestBlobs.length < maxItems) {
     const page = await list({
       prefix: BILL_ARTIFACT_PREFIX,
-      limit: 1000,
+      limit: 200,
       cursor,
     });
+    visitedPages += 1;
 
     for (const blob of page.blobs) {
       if (blob.pathname.endsWith("/manifest.json")) {
         manifestBlobs.push({ pathname: blob.pathname, url: blob.url });
+        if (manifestBlobs.length >= maxItems) {
+          break;
+        }
       }
     }
 
@@ -107,8 +122,17 @@ export async function GET() {
     {}
   );
 
-  return Response.json({
-    artifacts,
-    groupedByBillId,
-  });
+  return Response.json(
+    {
+      artifacts,
+      groupedByBillId,
+      isPartial: hasMore || visitedPages >= maxPages || manifestBlobs.length >= maxItems,
+      limits: { maxItems, maxPages },
+    },
+    {
+      headers: {
+        "cache-control": "public, s-maxage=30, stale-while-revalidate=120",
+      },
+    }
+  );
 }
